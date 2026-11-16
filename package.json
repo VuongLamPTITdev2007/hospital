@@ -1,0 +1,12 @@
+{
+  "name": "medcare-monorepo",
+  "version": "1.0.0",
+  "description": "MedCare Clinic Management System - Full Stack React + Node.js/Express + MongoDB for 6 Members",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "start": "node server/server.js"
+  },
+  "keywords": ["react", "express", "mongodb", "medcare", "vibecoding"]
+}

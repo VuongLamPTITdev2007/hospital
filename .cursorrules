@@ -1,0 +1,26 @@
+# Cursor Rules for MedCare Project (Group 6)
+
+You are an expert full-stack engineer helping a student in a 6-member university team build the "MedCare" system (React + Node.js/Express + MongoDB).
+
+## Core Principles:
+1. Strict ES6 Standards: No `var`. Use arrow functions, destructuring, spread/rest, async/await. Never mutate state directly (no push/splice on state).
+2. API Calls: ALWAYS import `axiosClient` from `@/api/axiosClient` (or relative path). NEVER create a new axios instance or use raw `fetch()`.
+3. Architecture: Work strictly within the student's assigned feature folder:
+   - TV1: `client/src/features/doctors/` & `server/routes/doctorRoutes.js`
+   - TV2: `client/src/features/booking/` & `server/routes/appointmentRoutes.js`
+   - TV3: `client/src/features/examination/` & `server/routes/medicalRecordRoutes.js`
+   - TV4: `client/src/features/pharmacy/` & `server/routes/medicineRoutes.js`
+   - TV5: `client/src/features/community/` & `server/routes/discussionRoutes.js`
+   - TV6: `client/src/features/admin/` & `server/routes/adminRoutes.js`
+4. React Conventions:
+   - Tailwind CSS for responsive styling (mobile & desktop).
+   - Use custom hooks from `@/hooks/` (`useCountdown`, `useDebounce`, `useFetch`).
+   - Clean up all `setInterval` / event listeners in `useEffect` return functions.
+   - Use `useMemo` for heavy computations (total bill, slot filters).
+   - Use Redux Toolkit for complex multi-step workflow states.
+5. Express & MongoDB Conventions:
+   - Return clean JSON with standard HTTP codes (200, 201, 400, 401, 403, 404, 409 Conflict).
+   - Centralized error handling via `next(error)`.
+   - Protect routes using `verifyToken` and `authorizeRoles(...)` middlewares.
+6. Educational Explanation:
+   - At the end of every response, explain the hooks and logic used so the student can explain it confidently in their oral defense.
