@@ -9,12 +9,12 @@
 
 | Thành viên | Phân hệ (Feature) | Thư mục Frontend (React) | File Backend (Express + MongoDB) |
 | :---: | :--- | :--- | :--- |
-| **TV 1 (Leader)** | **Cổng Bác sĩ & Chuyên khoa** | `client/src/features/doctors/` | `server/controllers/doctorController.js`, `Specialty.js`, `DoctorProfile.js` |
-| **TV 2** | **Booking Engine & Giữ chỗ 5p** | `client/src/features/booking/` | `server/controllers/appointmentController.js`, `Appointment.js` |
-| **TV 3** | **Bàn làm việc Bác sĩ & Bệnh án (EHR)** | `client/src/features/examination/` | `server/controllers/medicalRecordController.js`, `MedicalRecord.js` |
-| **TV 4** | **Kê đơn thuốc & Kho Dược** | `client/src/features/pharmacy/` | `server/controllers/medicineController.js`, `Medicine.js`, `Prescription.js` |
-| **TV 5** | **Hỏi - Đáp Y tế & Đánh giá Review** | `client/src/features/community/` | `server/controllers/communityController.js`, `Discussion.js`, `Review.js` |
-| **TV 6** | **Quản trị Admin & Thống kê Analytics** | `client/src/features/admin/` | `server/controllers/adminController.js`, Aggregation Pipelines |
+| **Nguyễn Thọ Việt Dũng (Leader)** | **Cổng Bác sĩ & Chuyên khoa** | `client/src/features/doctors/` | `server/controllers/doctorController.js`, `Specialty.js`, `DoctorProfile.js` |
+| **Lưu Tổng** | **Booking Engine & Giữ chỗ 5p** | `client/src/features/booking/` | `server/controllers/appointmentController.js`, `Appointment.js` |
+| **Vương Gia khánh** | **Bàn làm việc Bác sĩ & Bệnh án (EHR)** | `client/src/features/examination/` | `server/controllers/medicalRecordController.js`, `MedicalRecord.js` |
+| **Vũ Ngọc Mai** | **Kê đơn thuốc & Kho Dược** | `client/src/features/pharmacy/` | `server/controllers/medicineController.js`, `Medicine.js`, `Prescription.js` |
+| **Nguyễn Thùy Linh** | **Hỏi - Đáp Y tế & Đánh giá Review** | `client/src/features/community/` | `server/controllers/communityController.js`, `Discussion.js`, `Review.js` |
+| **Nguyễn Bình Minh ** | **Quản trị Admin & Thống kê Analytics** | `client/src/features/admin/` | `server/controllers/adminController.js`, Aggregation Pipelines |
 
 ---
 
