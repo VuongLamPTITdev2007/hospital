@@ -69,13 +69,21 @@ npm run dev:client
 ```
 Truy cập giao diện tại: **`http://localhost:5173`**
 
+### Bước 4: Nạp dữ liệu kiểm thử Atlas (tùy chọn nhưng nên dùng)
+```bash
+cd server
+node scripts/seedAdminAnalyticsData.js
+```
+
+Script này tạo/cập nhật an toàn các chuyên khoa, bác sĩ, thuốc và tài khoản thử nghiệm; không cần đưa mật khẩu Atlas vào mã nguồn.
+
 ---
 
-## 4. Tài khoản Demo cho từng Vai trò
-* **Quản trị viên (Admin):** `admin@medcare.vn` / `123456`
-* **Bác sĩ (Doctor):** `doctor.an@medcare.vn` / `123456`
-* **Dược sĩ (Pharmacist):** `duocsi.mai@medcare.vn` / `123456`
-* **Bệnh nhân (Patient):** `benhnhan@gmail.com` / `123456`
+## 4. Tài khoản kiểm thử sau khi chạy seed
+* **Quản trị viên (Admin):** `admin.minh@medcare.local` / `Admin123456`
+* **Bác sĩ (Doctor):** `doctor.tim@medcare.local` / `Admin123456`
+* **Dược sĩ (Pharmacist):** `pharmacist.minh@medcare.local` / `Admin123456`
+* **Bệnh nhân (Patient):** `patient.minh@medcare.local` / `Admin123456`
 
 ---
 

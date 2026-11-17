@@ -1,0 +1,11 @@
+const express = require('express');
+const { getMedicines, getMyRecords, createPrescription, getPrescriptions, dispensePrescription } = require('../controllers/medicineController');
+const { verifyToken, authorizeRoles } = require('../middlewares/auth');
+const router = express.Router();
+router.use(verifyToken);
+router.get('/medicines', authorizeRoles('doctor', 'pharmacist', 'admin'), getMedicines);
+router.get('/records/my', authorizeRoles('doctor'), getMyRecords);
+router.post('/prescriptions', authorizeRoles('doctor'), createPrescription);
+router.get('/prescriptions', authorizeRoles('doctor', 'pharmacist', 'admin'), getPrescriptions);
+router.patch('/prescriptions/:id/dispense', authorizeRoles('pharmacist'), dispensePrescription);
+module.exports = router;

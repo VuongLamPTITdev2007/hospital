@@ -1,154 +1,96 @@
-import React, { useState } from 'react';
-import { User, ClipboardList, CheckCircle, Upload, FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CheckCircle, ClipboardList, FileText, PlayCircle, Save, User } from 'lucide-react';
+import axiosClient from '../../api/axiosClient';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import Loader from '../../components/common/Loader';
+import { useFetch } from '../../hooks/useFetch';
 
-const MOCK_PATIENTS = [
-  { id: 'app1', name: 'Trần Văn Bình', age: 42, slot: '08:00 - 08:30', status: 'waiting', symptoms: 'Đau tức ngực trái khi gắng sức' },
-  { id: 'app2', name: 'Lê Thị Thu', age: 29, slot: '09:00 - 09:30', status: 'examining', symptoms: 'Khó thở về đêm, tim đập nhanh' },
-  { id: 'app3', name: 'Phạm Minh Đức', age: 55, slot: '09:30 - 10:00', status: 'completed', symptoms: 'Tái khám huyết áp' },
-];
+const statusLabel = {
+  confirmed: 'Đã xác nhận',
+  waiting: 'Đang chờ',
+  in_progress: 'Đang khám',
+  completed: 'Đã hoàn tất'
+};
 
 const DoctorWorkspacePage = () => {
-  const [activePatient, setActivePatient] = useState(MOCK_PATIENTS[1]);
-  const [diagnosis, setDiagnosis] = useState('Rối loạn nhịp tim / Tăng huyết áp độ 1');
-  const [medicalHistory, setMedicalHistory] = useState('Có tiền sử gia đình bị tim mạch, không dị ứng thuốc');
-  const [isSaved, setIsSaved] = useState(false);
+  const { data, loading, error, refetch } = useFetch('/appointments/doctor-queue');
+  const [activeAppointment, setActiveAppointment] = useState(null);
+  const [form, setForm] = useState({ symptoms: '', medicalHistory: '', diagnosis: '', clinicalNotes: '' });
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const appointments = data?.data || [];
 
-  const handleSaveRecord = (e) => {
-    e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  useEffect(() => {
+    if (!activeAppointment && appointments.length > 0) setActiveAppointment(appointments[0]);
+  }, [appointments, activeAppointment]);
+
+  const selectAppointment = (appointment) => {
+    setActiveAppointment(appointment);
+    setForm({ symptoms: appointment.symptomsNote || '', medicalHistory: '', diagnosis: '', clinicalNotes: '' });
+    setMessage('');
   };
+
+  const updateStatus = async (status) => {
+    try {
+      const response = await axiosClient.patch(`/appointments/${activeAppointment._id}/status`, { status });
+      setActiveAppointment(response.data);
+      setMessage(`Đã chuyển trạng thái thành ${statusLabel[status]}.`);
+      refetch();
+    } catch (requestError) {
+      setMessage(requestError.message || 'Không thể cập nhật trạng thái khám.');
+    }
+  };
+
+  const saveRecord = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setMessage('');
+    try {
+      await axiosClient.post('/records', { appointmentId: activeAppointment._id, ...form });
+      setMessage('Đã lưu bệnh án điện tử và hoàn tất ca khám.');
+      refetch();
+    } catch (requestError) {
+      setMessage(requestError.message || 'Không thể lưu bệnh án.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Loader text="Đang tải danh sách khám..." />;
+  if (error) return <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">{error}</div>;
 
   return (
     <div className="space-y-6">
-      {/* Banner */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-        <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 rounded-full text-xs font-semibold mb-2">
-          Phân hệ TV 3: Bàn làm việc Bác sĩ & Hồ sơ Bệnh án (EHR)
-        </span>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          Phòng Khám Bác Sĩ – Tiếp Nhận & Lập Bệnh Án
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Bác sĩ theo dõi danh sách chờ khám, ghi nhận triệu chứng và kết luận chẩn đoán điện tử.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Patient Queue List */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
-            <ClipboardList className="w-5 h-5 mr-2 text-primary-600" /> Danh sách bệnh nhân ca sáng
-          </h2>
-
-          <div className="space-y-2.5">
-            {MOCK_PATIENTS.map((p) => {
-              const isCurrent = activePatient?.id === p.id;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => setActivePatient(p)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                    isCurrent
-                      ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-950/40 ring-1 ring-primary-500'
-                      : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{p.name}</span>
-                    <span className="text-xs text-slate-400 font-mono">{p.slot}</span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-1">Triệu chứng: {p.symptoms}</p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">{p.age} tuổi</span>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
-                      p.status === 'examining'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
-                        : p.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                    }`}>
-                      {p.status === 'examining' ? 'Đang khám' : p.status === 'completed' ? 'Đã xong' : 'Đang chờ'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+        <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 rounded-full text-xs font-semibold mb-2">Phân hệ TV 3: Bàn làm việc Bác sĩ & EHR</span>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Phòng khám bác sĩ</h1>
+        <p className="text-sm text-slate-500 mt-1">Tiếp nhận, khám và lưu bệnh án điện tử cho bệnh nhân theo lịch hẹn.</p>
+      </section>
+      {message && <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-800">{message}</div>}
+      {appointments.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-slate-500">Chưa có lịch khám nào dành cho bác sĩ này.</div> : <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <aside className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
+          <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center"><ClipboardList className="w-5 h-5 mr-2 text-primary-600" />Danh sách khám</h2>
+          <div className="space-y-2">{appointments.map((appointment) => <button key={appointment._id} onClick={() => selectAppointment(appointment)} className={`w-full text-left p-3 rounded-xl border ${activeAppointment?._id === appointment._id ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40' : 'border-slate-200 dark:border-slate-700'}`}>
+            <div className="flex justify-between text-sm"><strong>{appointment.patientName}</strong><span>{appointment.timeSlot.replace('-', ' - ')}</span></div>
+            <p className="text-xs text-slate-500 mt-1 truncate">{appointment.symptomsNote || 'Chưa ghi nhận triệu chứng'}</p>
+            <span className="inline-block mt-2 text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700">{statusLabel[appointment.status]}</span>
+          </button>)}</div>
+        </aside>
+        <section className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-700">
+            <div><h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center"><User className="w-5 h-5 mr-2 text-primary-600" />{activeAppointment?.patientName}</h2><p className="text-xs text-slate-500">Lịch {activeAppointment?.date}, {activeAppointment?.timeSlot.replace('-', ' - ')}</p></div>
+            {activeAppointment?.status === 'confirmed' && <Button size="sm" variant="outline" onClick={() => updateStatus('waiting')}>Tiếp nhận</Button>}
+            {activeAppointment?.status === 'waiting' && <Button size="sm" variant="primary" onClick={() => updateStatus('in_progress')}><PlayCircle className="w-4 h-4 mr-1" />Bắt đầu khám</Button>}
           </div>
-        </div>
-
-        {/* Medical Record Form */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                Hồ sơ bệnh án điện tử: {activePatient?.name}
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Mã hồ sơ: #EHR-{activePatient?.id}-2026</p>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-              Khung giờ: {activePatient?.slot}
-            </span>
-          </div>
-
-          {isSaved && (
-            <div className="mt-4 p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm flex items-center">
-              <CheckCircle className="w-4 h-4 mr-2" /> Đã lưu bệnh án điện tử thành công vào CSDL MongoDB!
-            </div>
-          )}
-
-          <form onSubmit={handleSaveRecord} className="mt-5 space-y-4">
-            <Input
-              label="Lý do khám / Triệu chứng ban đầu"
-              defaultValue={activePatient?.symptoms}
-              required
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Tiền sử bệnh & Dị ứng
-              </label>
-              <textarea
-                rows={2}
-                value={medicalHistory}
-                onChange={(e) => setMedicalHistory(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Kết luận chẩn đoán chuyên môn <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                required
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            {/* Attached files simulation */}
-            <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center">
-              <Upload className="w-8 h-8 mx-auto text-slate-400 mb-1" />
-              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">Tải lên ảnh siêu âm, điện tâm đồ hoặc kết quả xét nghiệm máu</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Hỗ trợ JPG, PNG, PDF (Tối đa 5MB)</p>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-3">
-              <Button type="button" variant="outline">
-                Chuyển tiếp kê đơn thuốc (TV4)
-              </Button>
-              <Button type="submit" variant="primary">
-                Lưu Bệnh Án Điện Tử
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
+          {activeAppointment?.status === 'completed' ? <div className="py-12 text-center text-emerald-600"><CheckCircle className="w-10 h-10 mx-auto mb-2" />Ca khám này đã hoàn tất. Bệnh án đã được lưu.</div> : <form onSubmit={saveRecord} className="mt-5 space-y-4">
+            <label className="block text-sm font-medium">Triệu chứng<textarea required rows={2} value={form.symptoms} onChange={(event) => setForm((current) => ({ ...current, symptoms: event.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-900" /></label>
+            <label className="block text-sm font-medium">Tiền sử bệnh và dị ứng<textarea rows={2} value={form.medicalHistory} onChange={(event) => setForm((current) => ({ ...current, medicalHistory: event.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-900" /></label>
+            <label className="block text-sm font-medium">Chẩn đoán<textarea required rows={3} value={form.diagnosis} onChange={(event) => setForm((current) => ({ ...current, diagnosis: event.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-900" /></label>
+            <label className="block text-sm font-medium">Ghi chú chuyên môn<textarea rows={2} value={form.clinicalNotes} onChange={(event) => setForm((current) => ({ ...current, clinicalNotes: event.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border dark:bg-slate-900" /></label>
+            <div className="flex justify-end"><Button type="submit" variant="primary" loading={saving}><Save className="w-4 h-4 mr-1.5" />Lưu bệnh án điện tử</Button></div>
+          </form>}
+        </section>
+      </div>}
     </div>
   );
 };

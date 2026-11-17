@@ -21,6 +21,7 @@ const Navbar = () => {
         ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/50'
         : 'text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-100 dark:hover:bg-slate-800'
     }`;
+  const canAccess = (...roles) => isAuthenticated && roles.includes(user?.role);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
@@ -46,21 +47,21 @@ const Navbar = () => {
             <NavLink to="/doctors" className={navLinkClass}>
               <Stethoscope className="w-4 h-4 mr-1.5" /> Bác sĩ (TV1)
             </NavLink>
-            <NavLink to="/booking" className={navLinkClass}>
+            {canAccess('patient') && <NavLink to="/booking" className={navLinkClass}>
               <Calendar className="w-4 h-4 mr-1.5" /> Đặt lịch (TV2)
-            </NavLink>
-            <NavLink to="/examination" className={navLinkClass}>
+            </NavLink>}
+            {canAccess('doctor') && <NavLink to="/examination" className={navLinkClass}>
               <Activity className="w-4 h-4 mr-1.5" /> Khám bệnh (TV3)
-            </NavLink>
-            <NavLink to="/pharmacy" className={navLinkClass}>
+            </NavLink>}
+            {canAccess('doctor', 'pharmacist') && <NavLink to="/pharmacy" className={navLinkClass}>
               <Pill className="w-4 h-4 mr-1.5" /> Kho dược (TV4)
-            </NavLink>
+            </NavLink>}
             <NavLink to="/community" className={navLinkClass}>
               <MessageSquare className="w-4 h-4 mr-1.5" /> Hỏi - Đáp (TV5)
             </NavLink>
-            <NavLink to="/admin" className={navLinkClass}>
+            {canAccess('admin') && <NavLink to="/admin" className={navLinkClass}>
               <Shield className="w-4 h-4 mr-1.5" /> Quản trị (TV6)
-            </NavLink>
+            </NavLink>}
           </nav>
 
           {/* Right Actions */}

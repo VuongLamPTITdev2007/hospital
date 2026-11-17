@@ -6,6 +6,15 @@ const User = require('../models/User');
 exports.register = async (req, res, next) => {
   try {
     const { fullName, email, password, phone, role } = req.body;
+    const requestedRole = role || 'patient';
+    const selfRegistrationRoles = ['patient', 'doctor', 'pharmacist'];
+
+    if (!selfRegistrationRoles.includes(requestedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vai trò đăng ký không hợp lệ. Tài khoản quản trị phải được cấp bởi hệ thống.'
+      });
+    }
 
     // Kiểm tra email tồn tại
     const existingUser = await User.findOne({ email });
@@ -25,7 +34,7 @@ exports.register = async (req, res, next) => {
       email,
       password: hashedPassword,
       phone: phone || '',
-      role: role || 'patient'
+      role: requestedRole
     });
 
     // Tạo JWT token

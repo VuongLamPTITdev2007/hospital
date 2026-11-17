@@ -32,14 +32,13 @@ app.get('/api/health', (req, res) => {
 
 // Nạp các Routes
 app.use('/api/auth', require('./routes/authRoutes'));
-
-// Placeholders cho các Routes phân hệ của từng thành viên
-// app.use('/api/doctors', require('./routes/doctorRoutes'));       // TV 1
-// app.use('/api/appointments', require('./routes/appointmentRoutes')); // TV 2
-// app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3
-// app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4
-// app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5
-// app.use('/api/admin', require('./routes/adminRoutes'));           // TV 6
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api', require('./routes/doctorRoutes'));
+// Các route cộng đồng có phần đọc công khai phải được nạp trước router dùng verifyToken toàn cục.
+app.use('/api', require('./routes/communityRoutes'));
+app.use('/api', require('./routes/appointmentRoutes'));
+app.use('/api', require('./routes/medicalRecordRoutes'));
+app.use('/api', require('./routes/medicineRoutes'));
 
 // Xử lý 404 cho Route không tồn tại
 app.use('*', (req, res) => {

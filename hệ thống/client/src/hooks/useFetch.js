@@ -11,7 +11,12 @@ export const useFetch = (url, options = {}) => {
   const [error, setError] = useState(null);
 
   const fetchData = useCallback(async () => {
-    if (!url) return;
+    if (!url) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
