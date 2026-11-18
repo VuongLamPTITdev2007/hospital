@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
 const Specialty = require('../models/Specialty');
+const { availableSlots } = require('../services/bookingService');
 
 const isValidDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '');
 
@@ -78,30 +79,13 @@ const getAvailableSlots = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Ngày khám phải có định dạng YYYY-MM-DD.' });
     }
 
-    const profile = await DoctorProfile.findOne({ userId: req.params.id });
-    if (!profile) {
+    const slots = await availableSlots(req.params.id, date);
+    if (!slots) {
       return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ bác sĩ.' });
     }
-
-    await Appointment.updateMany(
-      { status: 'holding', holdingExpiresAt: { $lt: new Date() } },
-      { $set: { status: 'cancelled' } }
-    );
-
-    const dayOfWeek = new Date(`${date}T00:00:00`).getDay() || 7;
-    const workingDay = profile.workingHours.find((item) => item.dayOfWeek === dayOfWeek);
-    const defaultSlots = ['08:00-08:30', '08:30-09:00', '09:00-09:30', '09:30-10:00', '10:00-10:30', '14:00-14:30', '14:30-15:00', '15:00-15:30'];
-    const slots = workingDay?.slots?.length ? workingDay.slots : defaultSlots;
-    const bookedAppointments = await Appointment.find({
-      doctorId: req.params.id,
-      date,
-      status: { $ne: 'cancelled' }
-    }).select('timeSlot');
-    const bookedSlots = new Set(bookedAppointments.map((appointment) => appointment.timeSlot));
-
     res.status(200).json({
       success: true,
-      data: slots.map((timeSlot) => ({ timeSlot, isBooked: bookedSlots.has(timeSlot) }))
+      data: slots
     });
   } catch (error) {
     next(error);

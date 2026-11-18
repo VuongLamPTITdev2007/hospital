@@ -113,8 +113,8 @@ const BookingPage = () => {
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center"><Clock className="w-5 h-5 mr-2 text-primary-600" />Khung giờ khả dụng</h2>
           {slotsLoading ? <Loader text="Đang tải khung giờ..." /> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{slots.map((slot) => {
             const isSelected = selectedSlot === slot.timeSlot;
-            return <button key={slot.timeSlot} type="button" disabled={slot.isBooked || Boolean(holdingAppointment)} onClick={() => setSelectedSlot(slot.timeSlot)} className={`p-3 rounded-xl border text-sm font-semibold ${slot.isBooked ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through' : isSelected ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-primary-400'}`}>
-              <span>{slot.timeSlot.replace('-', ' - ')}</span><span className="block text-[11px] font-normal mt-1">{slot.isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}</span>
+            return <button key={slot.timeSlot} type="button" disabled={slot.isBooked || slot.isPast || Boolean(holdingAppointment)} onClick={() => setSelectedSlot(slot.timeSlot)} className={`p-3 rounded-xl border text-sm font-semibold ${slot.isBooked || slot.isPast ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed line-through' : isSelected ? 'bg-primary-600 text-white border-primary-600' : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-primary-400'}`}>
+              <span>{slot.timeSlot.replace('-', ' - ')}</span><span className="block text-[11px] font-normal mt-1">{slot.isPast ? 'Đã qua' : slot.isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}</span>
             </button>;
           })}</div>}
         </div>

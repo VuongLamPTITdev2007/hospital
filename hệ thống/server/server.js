@@ -32,6 +32,7 @@ app.get('/api/health', (req, res) => {
 
 // Nạp các Routes
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api', require('./routes/doctorRoutes'));
 // Các route cộng đồng có phần đọc công khai phải được nạp trước router dùng verifyToken toàn cục.

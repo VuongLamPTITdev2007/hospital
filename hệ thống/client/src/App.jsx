@@ -12,12 +12,14 @@ import PharmacyInventoryPage from './features/pharmacy/PharmacyInventoryPage';
 import QnAPage from './features/community/QnAPage';
 import AdminDashboardPage from './features/admin/AdminDashboardPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import ChatWidget from './features/chat/ChatWidget';
 
 // Layout chung bao gồm Navbar và Footer
 const MainLayout = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
       <Navbar />
+      <ChatWidget />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />
       </main>

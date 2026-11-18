@@ -69,6 +69,26 @@ npm run dev:client
 ```
 Truy cập giao diện tại: **`http://localhost:5173`**
 
+### Chatbot đặt lịch qua OpenRouter
+
+Thêm vào `server/.env` (không commit file này):
+
+```env
+OPENROUTER_API_KEY=key-cua-ban
+OPENROUTER_MODEL=openai/gpt-4o-mini
+```
+
+Khởi động lại backend sau khi sửa `.env`. Bệnh nhân đăng nhập sẽ thấy nút trợ lý ở góc dưới phải. Hỏi “Khám tim ngày mai còn lịch nào?”, chọn một slot, xem cửa sổ cọc 50.000đ và bấm xác nhận. Đây là mô phỏng thanh toán: hệ thống ghi nhận lời xác nhận, chưa có cổng ngân hàng hoặc đối soát giao dịch thật. Nếu quá 5 phút, chỗ giữ tự hết hạn khi truy vấn lịch tiếp theo.
+
+Kiểm thử tool với Atlas mà không tiêu tốn OpenRouter token:
+
+```bash
+cd server
+node scripts/testChatFlow.js
+```
+
+API chat: `POST /api/chat/messages` với JWT bệnh nhân, body `{ "message": "...", "history": [{ "role": "user|assistant", "content": "..." }] }`; trả `{ success: true, data: { reply, choices, booking } }`. Không có JWT trả 401, sai vai trò trả 403, thiếu key trả 503, provider lỗi trả 502, quá 12 tin/phút trả 429. `booking` chỉ xuất hiện sau khi tạo giữ chỗ; frontend gọi `PATCH /api/appointments/:id` với `action: "confirm"` hoặc `"cancel"` như luồng thủ công.
+
 ### Bước 4: Nạp dữ liệu kiểm thử Atlas (tùy chọn nhưng nên dùng)
 ```bash
 cd server

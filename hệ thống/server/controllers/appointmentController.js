@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
+const { createHold } = require('../services/bookingService');
 
 const isValidDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '');
 const isValidSlot = (value) => /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(value || '');
@@ -24,46 +25,13 @@ const createAppointment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ bác sĩ, ngày, khung giờ và thông tin bệnh nhân.' });
     }
 
-    const profile = await DoctorProfile.findOne({ userId: doctorId });
-    if (!profile) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ bác sĩ.' });
-    }
-
-    await Appointment.updateMany(
-      { doctorId, date, status: 'holding', holdingExpiresAt: { $lt: new Date() } },
-      { $set: { status: 'cancelled' } }
-    );
-
-    const occupiedAppointment = await Appointment.exists({
-      doctorId,
-      date,
-      timeSlot,
-      status: { $ne: 'cancelled' }
-    });
-    if (occupiedAppointment) {
-      return res.status(409).json({
-        success: false,
-        message: 'Khung giờ này đã được người khác giữ hoặc đặt. Vui lòng chọn khung giờ khác.'
-      });
-    }
-
-    const appointment = await Appointment.create({
-      patientId: req.user.id,
-      doctorId,
-      doctorProfileId: profile._id,
-      date,
-      timeSlot,
-      patientName: patientName.trim(),
-      patientPhone: patientPhone.trim(),
-      symptomsNote: symptomsNote.trim(),
-      fee: profile.consultationFee,
-      holdingExpiresAt: new Date(Date.now() + 5 * 60 * 1000)
-    });
+    const result = await createHold({ patientId: req.user.id, doctorId, date, timeSlot, patientName, patientPhone, symptomsNote });
+    if (result.message) return res.status(result.status).json({ success: false, message: result.message });
 
     res.status(201).json({
       success: true,
       message: 'Đã giữ chỗ trong 5 phút. Vui lòng xác nhận thanh toán cọc.',
-      data: appointment
+      data: result.appointment
     });
   } catch (error) {
     next(error);
