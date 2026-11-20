@@ -6,6 +6,7 @@ import NotFoundPage from './features/common/NotFoundPage';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
 import DoctorListPage from './features/doctors/DoctorListPage';
+import DoctorDetailPage from './features/doctors/DoctorDetailPage';
 import BookingPage from './features/booking/BookingPage';
 import DoctorWorkspacePage from './features/examination/DoctorWorkspacePage';
 import PharmacyInventoryPage from './features/pharmacy/PharmacyInventoryPage';
@@ -37,8 +38,9 @@ const App = () => {
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         
-        {/* Phân hệ TV 1: Danh sách bác sĩ */}
+        {/* Phân hệ TV 1: Danh sách bác sĩ & Chi tiết */}
         <Route path="doctors" element={<DoctorListPage />} />
+        <Route path="doctors/:id" element={<DoctorDetailPage />} />
         
         {/* Phân hệ TV 2: Đặt lịch hẹn */}
         <Route path="booking" element={<BookingPage />} />
