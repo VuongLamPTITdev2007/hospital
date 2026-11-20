@@ -8,105 +8,139 @@ const Review = require('./models/Review');
 
 dotenv.config();
 
+// 8 Chuyên khoa y tế phổ biến tại Hà Nội
 const SPECIALTIES = [
-  { name: 'Tim mạch', description: 'Chẩn đoán và điều trị tăng huyết áp, rối loạn nhịp tim, suy tim và bệnh động mạch vành.', icon: 'HeartPulse' },
-  { name: 'Nhi khoa', description: 'Chăm sóc sức khỏe toàn diện, tiêm chủng và điều trị bệnh lý cho trẻ sơ sinh và trẻ nhỏ.', icon: 'Baby' },
-  { name: 'Cơ xương khớp', description: 'Điều trị thoái hóa khớp, thoát vị đĩa đệm, loãng xương và chấn thương thể thao.', icon: 'Bone' },
-  { name: 'Thần kinh', description: 'Khám và điều trị đau nửa đầu, mất ngủ, tai biến mạch máu não và rối loạn tiền đình.', icon: 'Brain' },
-  { name: 'Tiêu hóa', description: 'Chuyên khoa dạ dày, tá tràng, đại tràng, gan mật và nội soi tiêu hóa.', icon: 'Activity' },
-  { name: 'Da liễu', description: 'Khám chữa viêm da dị ứng, mụn trứng cá, vảy nến và chăm sóc thẩm mỹ da chuyên sâu.', icon: 'Sparkles' }
+  { name: 'Tim mạch', description: 'Chẩn đoán và điều trị tăng huyết áp, suy tim, bệnh mạch vành và can thiệp tim mạch.', icon: 'HeartPulse' },
+  { name: 'Nhi khoa', description: 'Khám chữa bệnh lý sơ sinh, hô hấp, tiêu hóa và tư vấn dinh dưỡng toàn diện cho trẻ nhỏ.', icon: 'Baby' },
+  { name: 'Cơ xương khớp', description: 'Điều trị thoái hóa khớp, thoát vị đĩa đệm, viêm khớp dạng thấp và chấn thương chỉnh hình.', icon: 'Bone' },
+  { name: 'Tiêu hóa - Gan mật', description: 'Nội soi không đau, chẩn đoán ung thư sớm đường tiêu hóa, viêm gan virus và trào ngược dạ dày.', icon: 'Activity' },
+  { name: 'Thần kinh', description: 'Điều trị đau nửa đầu Migraine, rối loạn tiền đình, mất ngủ mạn tính và di chứng đột quỵ.', icon: 'Brain' },
+  { name: 'Da liễu', description: 'Khám chữa mụn trứng cá, viêm da cơ địa, vảy nến, sẹo rỗ và thẩm mỹ laser nội khoa.', icon: 'Sparkles' },
+  { name: 'Sản phụ khoa', description: 'Khám thai định kỳ, sàng lọc dị tật trước sinh, phụ khoa tổng quát và tầm soát ung thư cổ tử cung.', icon: 'Users' },
+  { name: 'Hô hấp - Phổi', description: 'Điều trị hen phế quản, COPD, viêm phổi, ho kéo dài và bệnh lý ngưng thở khi ngủ.', icon: 'Stethoscope' }
 ];
 
-const DOCTOR_DATA = [
+// Danh sách Bác sĩ đầu ngành uy tín tại các Bệnh viện lớn ở Hà Nội
+const HANOI_DOCTORS = [
   {
-    name: 'BSCKII. Nguyễn Văn An',
-    email: 'doctor.an@medcare.vn',
-    phone: '0981234561',
+    name: 'PGS.TS.BS. Nguyễn Lân Hiếu',
+    email: 'lanhieu.nguyen@medcare.vn',
+    phone: '0912111001',
     specialtyIndex: 0, // Tim mạch
-    degree: 'Bác sĩ Chuyên khoa II',
-    hospital: 'Bệnh viện Bạch Mai - MedCare Clinic',
-    consultationFee: 350000,
-    experienceYears: 18,
-    averageRating: 4.9,
-    reviewCount: 142,
-    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=80',
-    bio: 'Nguyên Phó Trưởng khoa Tim mạch Viện Tim Hà Nội. Chuyên gia đầu ngành trong điều trị tăng huyết áp vô căn và rối loạn nhịp tim.',
+    degree: 'Phó Giáo sư, Tiến sĩ, Bác sĩ Cao cấp',
+    hospital: 'Bệnh viện Đại học Y Hà Nội (Số 1 Tôn Thất Tùng, Đống Đa)',
+    consultationFee: 450000,
+    experienceYears: 25,
+    averageRating: 5.0,
+    reviewCount: 215,
+    avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=350&q=80',
+    bio: 'Giám đốc Bệnh viện Đại học Y Hà Nội. Chuyên gia đầu ngành can thiệp tim bẩm sinh và tim mạch can thiệp tại Việt Nam với nhiều năm tu nghiệp tại Pháp và Mỹ.',
     workingDays: [1, 3, 5] // T2, T4, T6
   },
   {
-    name: 'ThS.BS. Trần Thị Mai',
-    email: 'doctor.mai@medcare.vn',
-    phone: '0981234562',
+    name: 'PGS.TS.BS. Nguyễn Tiến Dũng',
+    email: 'tiendung.nguyen@medcare.vn',
+    phone: '0912111002',
     specialtyIndex: 1, // Nhi khoa
-    degree: 'Thạc sĩ Bác sĩ Nhi',
-    hospital: 'Bệnh viện Nhi Trung Ương',
-    consultationFee: 300000,
-    experienceYears: 12,
-    averageRating: 5.0,
-    reviewCount: 98,
-    avatar: 'https://images.unsplash.com/photo-1594824813572-98e841753947?auto=format&fit=crop&w=300&q=80',
-    bio: 'Bác sĩ tận tâm với hơn 12 năm kinh nghiệm khám chữa các bệnh lý đường hô hấp, tiêu hóa và tư vấn dinh dưỡng cho trẻ nhỏ.',
+    degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Nhi',
+    hospital: 'Bệnh viện Bạch Mai (Số 78 Giải Phóng, Phương Mai, Đống Đa)',
+    consultationFee: 350000,
+    experienceYears: 32,
+    averageRating: 4.9,
+    reviewCount: 180,
+    avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=350&q=80',
+    bio: 'Nguyên Trưởng khoa Nhi - Bệnh viện Bạch Mai. Chuyên gia điều trị viêm phổi nặng, dị ứng, suy dinh dưỡng và kháng sinh đồ nhi khoa.',
     workingDays: [2, 4, 6] // T3, T5, T7
   },
   {
-    name: 'TS.BS. Lê Hoàng Nam',
-    email: 'doctor.nam@medcare.vn',
-    phone: '0981234563',
+    name: 'PGS.TS.BS. Nguyễn Vĩnh Ngọc',
+    email: 'vinhngoc.nguyen@medcare.vn',
+    phone: '0912111003',
     specialtyIndex: 2, // Cơ xương khớp
-    degree: 'Tiến sĩ Y khoa',
-    hospital: 'Viện Chấn thương Chỉnh hình',
+    degree: 'Phó Giáo sư, Tiến sĩ Y khoa',
+    hospital: 'Bệnh viện Bạch Mai & Đại học Y Hà Nội',
     consultationFee: 400000,
-    experienceYears: 20,
+    experienceYears: 28,
+    averageRating: 4.9,
+    reviewCount: 164,
+    avatar: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=350&q=80',
+    bio: 'Phó Chủ tịch Hội Thấp khớp học Hà Nội. Bác sĩ nổi tiếng về điều trị thoái hóa khớp gối, viêm cột sống dính khớp, gút và các bệnh lý tự miễn mô liên kết.',
+    workingDays: [1, 2, 4, 5]
+  },
+  {
+    name: 'GS.TS.BS. Đào Văn Long',
+    email: 'vanlong.dao@medcare.vn',
+    phone: '0912111004',
+    specialtyIndex: 3, // Tiêu hóa
+    degree: 'Giáo sư, Tiến sĩ Y học',
+    hospital: 'Bệnh viện Đại học Y Hà Nội (Nguyên Giám đốc BV)',
+    consultationFee: 500000,
+    experienceYears: 35,
+    averageRating: 5.0,
+    reviewCount: 240,
+    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=350&q=80',
+    bio: 'Nguyên Trưởng khoa Tiêu hóa BV Bạch Mai, Nguyên Giám đốc BV ĐH Y Hà Nội. Chuyên gia hàng đầu Việt Nam về tầm soát ung thư sớm dạ dày, đại tràng và điều trị HP kháng thuốc.',
+    workingDays: [2, 4, 6]
+  },
+  {
+    name: 'PGS.TS.BS. Nguyễn Văn Liệu',
+    email: 'vanlieu.nguyen@medcare.vn',
+    phone: '0912111005',
+    specialtyIndex: 4, // Thần kinh
+    degree: 'Phó Giáo sư, Bác sĩ Chuyên khoa Thần kinh',
+    hospital: 'Bệnh viện Bạch Mai & Đại học Y Hà Nội',
+    consultationFee: 400000,
+    experienceYears: 30,
     averageRating: 4.8,
-    reviewCount: 76,
-    avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=300&q=80',
-    bio: 'Từng tu nghiệp chuyên sâu tại Pháp về phẫu thuật nội soi khớp và phục hồi chức năng vận động cho bệnh nhân thoái hóa.',
-    workingDays: [1, 2, 3, 4, 5]
+    reviewCount: 132,
+    avatar: 'https://images.unsplash.com/photo-1594824813572-98e841753947?auto=format&fit=crop&w=350&q=80',
+    bio: 'Chuyên gia đầu ngành về nội thần kinh. Chuyên khám chữa chứng đau nửa đầu, mất ngủ kéo dài, Parkinson, rối loạn tiền đình và thoái hóa hệ thần kinh trung ương.',
+    workingDays: [1, 3, 5, 7]
   },
   {
-    name: 'BSCKI. Vũ Phương Linh',
-    email: 'doctor.linh@medcare.vn',
-    phone: '0981234564',
-    specialtyIndex: 3, // Thần kinh
-    degree: 'Bác sĩ Chuyên khoa I',
-    hospital: 'Bệnh viện Đại học Y Hà Nội',
-    consultationFee: 320000,
-    experienceYears: 10,
-    averageRating: 4.9,
-    reviewCount: 54,
-    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=300&q=80',
-    bio: 'Chuyên gia điều trị các hội chứng đau đầu mạn tính, rối loạn giấc ngủ, suy nhược thần kinh và di chứng hậu đột quỵ.',
-    workingDays: [1, 3, 6]
-  },
-  {
-    name: 'ThS.BS. Đặng Quốc Toàn',
-    email: 'doctor.toan@medcare.vn',
-    phone: '0981234565',
-    specialtyIndex: 4, // Tiêu hóa
-    degree: 'Thạc sĩ Nội soi Tiêu hóa',
-    hospital: 'Bệnh viện Hữu nghị Việt Đức',
-    consultationFee: 350000,
-    experienceYears: 15,
-    averageRating: 4.7,
-    reviewCount: 88,
-    avatar: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=300&q=80',
-    bio: 'Bác sĩ có thế mạnh trong chẩn đoán sớm ung thư đường tiêu hóa, điều trị loét dạ dày HP kháng thuốc và viêm đại tràng co thắt.',
-    workingDays: [2, 4, 5, 7]
-  },
-  {
-    name: 'BSCKI. Hoàng Mỹ Duyên',
-    email: 'doctor.duyen@medcare.vn',
-    phone: '0981234566',
+    name: 'PGS.TS.BS. Phạm Thị Lan',
+    email: 'thilan.pham@medcare.vn',
+    phone: '0912111006',
     specialtyIndex: 5, // Da liễu
-    degree: 'Bác sĩ Chuyên khoa Da liễu',
-    hospital: 'Bệnh viện Da liễu TW - MedCare',
-    consultationFee: 280000,
-    experienceYears: 8,
+    degree: 'Phó Giáo sư, Tiến sĩ Da liễu',
+    hospital: 'Bệnh viện Da liễu Trung ương (Số 15A Phương Mai, Đống Đa)',
+    consultationFee: 350000,
+    experienceYears: 22,
     averageRating: 4.9,
-    reviewCount: 112,
-    avatar: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?auto=format&fit=crop&w=300&q=80',
-    bio: 'Chuyên khoa thẩm mỹ nội khoa, điều trị mụn trứng cá chuyên sâu, sẹo rỗ, nám da và các bệnh lý dị ứng tự miễn.',
+    reviewCount: 195,
+    avatar: 'https://images.unsplash.com/photo-1651008376811-b90baee60c1f?auto=format&fit=crop&w=350&q=80',
+    bio: 'Giảng viên cao cấp Bộ môn Da liễu Đại học Y Hà Nội, Chuyên gia Bệnh viện Da liễu TW. Thế mạnh điều trị mụn trứng cá nặng, viêm da cơ địa và thẩm mỹ nội khoa.',
     workingDays: [1, 2, 4, 6]
+  },
+  {
+    name: 'PGS.TS.BS. Vũ Bá Quyết',
+    email: 'baquyet.vu@medcare.vn',
+    phone: '0912111007',
+    specialtyIndex: 6, // Sản phụ khoa
+    degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Sản phụ khoa',
+    hospital: 'Bệnh viện Phụ sản Trung ương (Số 43 Tràng Thi, Hoàn Kiếm)',
+    consultationFee: 450000,
+    experienceYears: 34,
+    averageRating: 5.0,
+    reviewCount: 220,
+    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=350&q=80',
+    bio: 'Nguyên Giám đốc Bệnh viện Phụ sản Trung ương. Chuyên gia phẫu thuật nội soi sản phụ khoa hàng đầu Việt Nam, điều trị u xơ tử cung, vô sinh hiếm muộn và thai kỳ nguy cơ cao.',
+    workingDays: [2, 4, 5, 6]
+  },
+  {
+    name: 'PGS.TS.BS. Chu Thị Hạnh',
+    email: 'thihanh.chu@medcare.vn',
+    phone: '0912111008',
+    specialtyIndex: 7, // Hô hấp
+    degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Hô hấp',
+    hospital: 'Trung tâm Hô hấp - Bệnh viện Bạch Mai',
+    consultationFee: 380000,
+    experienceYears: 26,
+    averageRating: 4.8,
+    reviewCount: 110,
+    avatar: 'https://images.unsplash.com/photo-1594824813572-98e841753947?auto=format&fit=crop&w=350&q=80',
+    bio: 'Phó Chủ tịch Hội Hô hấp Việt Nam, Phó Giám đốc Trung tâm Hô hấp BV Bạch Mai. Chuyên gia điều trị hen phế quản, COPD, giãn phế quản và bệnh phổi mô kẽ.',
+    workingDays: [1, 3, 5]
   }
 ];
 
@@ -118,7 +152,7 @@ const DEFAULT_SLOTS = [
 const seedDB = async () => {
   try {
     const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/medcare_db';
-    console.log(`Connecting to MongoDB at: ${mongoUri}...`);
+    console.log(`Connecting to MongoDB: ${mongoUri}...`);
     await mongoose.connect(mongoUri);
 
     console.log('Clearing old Specialties and DoctorProfiles...');
@@ -129,11 +163,11 @@ const seedDB = async () => {
     const createdSpecialties = await Specialty.insertMany(SPECIALTIES);
     console.log(`Created ${createdSpecialties.length} specialties.`);
 
-    console.log('Creating Doctors...');
+    console.log('Creating Hanoi Doctors...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('123456', salt);
 
-    for (const doc of DOCTOR_DATA) {
+    for (const doc of HANOI_DOCTORS) {
       // Tìm hoặc tạo tài khoản User
       let user = await User.findOne({ email: doc.email });
       if (!user) {
@@ -168,7 +202,7 @@ const seedDB = async () => {
       });
     }
 
-    console.log('All Doctor Profiles seeded successfully!');
+    console.log('Successfully seeded 8 top-tier Hanoi Doctors into MongoDB!');
     process.exit(0);
   } catch (error) {
     console.error('Seed error:', error);
