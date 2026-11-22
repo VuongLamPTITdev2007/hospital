@@ -1,15 +1,16 @@
 const Medicine = require('../models/Medicine');
 
-const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 exports.getMedicines = async (req, res, next) => {
   try {
     const { search, unit, lowStock } = req.query;
     const filter = {};
 
     if (search && search.trim()) {
-      const regex = new RegExp(escapeRegex(search.trim()), 'i');
-      filter.$or = [{ name: regex }, { activeIngredient: regex }];
+      const keyword = search.trim();
+      filter.$or = [
+        { name: { $regex: keyword, $options: 'i' } },
+        { activeIngredient: { $regex: keyword, $options: 'i' } }
+      ];
     }
 
     if (unit && unit.trim()) {
@@ -79,7 +80,7 @@ exports.createMedicine = async (req, res, next) => {
     }
 
     const existingMedicine = await Medicine.findOne({
-      name: new RegExp(`^${escapeRegex(name.trim())}$`, 'i')
+      name: { $regex: `^${name.trim()}$`, $options: 'i' }
     });
 
     if (existingMedicine) {
@@ -144,7 +145,7 @@ exports.updateMedicine = async (req, res, next) => {
     if (name && name.trim() && name.trim().toLowerCase() !== medicine.name.toLowerCase()) {
       const duplicate = await Medicine.findOne({
         _id: { $ne: medicine._id },
-        name: new RegExp(`^${escapeRegex(name.trim())}$`, 'i')
+        name: { $regex: `^${name.trim()}$`, $options: 'i' }
       });
 
       if (duplicate) {

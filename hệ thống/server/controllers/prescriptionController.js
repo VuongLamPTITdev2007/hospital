@@ -28,6 +28,9 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    let totalAmount = 0;
+    const prescriptionItems = [];
+
     for (const item of items) {
       if (!item.medicineId || !item.quantity || Number(item.quantity) < 1 || !item.dosage || !item.dosage.trim()) {
         return res.status(400).json({
@@ -35,52 +38,36 @@ exports.createPrescription = async (req, res, next) => {
           message: 'Mỗi thuốc trong đơn phải có mã thuốc, số lượng (>= 1) và liều dùng hợp lệ!'
         });
       }
-    }
 
-    const medicineIds = [...new Set(items.map((item) => item.medicineId.toString()))];
-    const medicines = await Medicine.find({ _id: { $in: medicineIds } });
-    const medicineMap = new Map(medicines.map((med) => [med._id.toString(), med]));
-
-    const requestedQtyMap = new Map();
-    for (const item of items) {
-      const id = item.medicineId.toString();
-      if (!medicineMap.has(id)) {
+      const med = await Medicine.findById(item.medicineId);
+      if (!med) {
         return res.status(404).json({
           success: false,
-          message: `Không tìm thấy thuốc với mã ${id} trong kho!`
+          message: `Không tìm thấy thuốc với mã ${item.medicineId} trong kho!`
         });
       }
-      requestedQtyMap.set(id, (requestedQtyMap.get(id) || 0) + Number(item.quantity));
-    }
 
-    for (const [id, totalQty] of requestedQtyMap.entries()) {
-      const med = medicineMap.get(id);
-      if (med.stockQuantity < totalQty) {
+      const quantity = Number(item.quantity);
+      if (med.stockQuantity < quantity) {
         return res.status(409).json({
           success: false,
-          message: `Thuốc "${med.name}" chỉ còn ${med.stockQuantity} ${med.unit} trong kho, không đủ cho số lượng kê (${totalQty})!`
+          message: `Thuốc "${med.name}" chỉ còn ${med.stockQuantity} ${med.unit} trong kho, không đủ cho số lượng kê (${quantity})!`
         });
       }
-    }
 
-    let totalAmount = 0;
-    const prescriptionItems = items.map((item) => {
-      const med = medicineMap.get(item.medicineId.toString());
-      const quantity = Number(item.quantity);
-      const unitPrice = med.price;
-      const subTotal = unitPrice * quantity;
+      const subTotal = med.price * quantity;
       totalAmount += subTotal;
 
-      return {
+      prescriptionItems.push({
         medicineId: med._id,
         medicineName: med.name,
         quantity,
         unit: med.unit,
         dosage: item.dosage.trim(),
-        unitPrice,
+        unitPrice: med.price,
         subTotal
-      };
-    });
+      });
+    }
 
     const prescriptionData = {
       patientId,
