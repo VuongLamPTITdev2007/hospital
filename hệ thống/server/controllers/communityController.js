@@ -200,3 +200,113 @@ exports.deleteDiscussion = async (req, res, next) => {
     next(error);
   }
 };
+
+// 5. Bình luận / Trả lời câu hỏi (Tự động nhận diện Bác sĩ trả lời)
+// @route   POST /api/discussions/:id/comments
+// @access  Private (verifyToken)
+exports.addComment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng nhập nội dung phản hồi/bình luận.'
+      });
+    }
+
+    const discussion = await Discussion.findById(id);
+
+    if (!discussion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy câu hỏi để phản hồi.'
+      });
+    }
+
+    // Nghiệp vụ quan trọng: Nhận diện phản hồi chuyên môn từ Bác sĩ
+    const isDoctorAnswer = req.user.role === 'doctor';
+
+    const newComment = {
+      authorId: req.user.id,
+      content: content.trim(),
+      isDoctorAnswer
+    };
+
+    discussion.comments.push(newComment);
+    await discussion.save();
+
+    // Nạp lại thông tin người bình luận để trả về đầy đủ cho giao diện
+    const updatedDiscussion = await Discussion.findById(id)
+      .populate('comments.authorId', 'fullName role avatar');
+
+    const addedComment = updatedDiscussion.comments[updatedDiscussion.comments.length - 1];
+
+    res.status(201).json({
+      success: true,
+      message: isDoctorAnswer
+        ? 'Bác sĩ đã gửi tư vấn chuyên môn thành công!'
+        : 'Đã gửi bình luận trao đổi thành công!',
+      comment: {
+        _id: addedComment._id,
+        content: addedComment.content,
+        isDoctorAnswer: addedComment.isDoctorAnswer,
+        authorName: addedComment.authorId?.fullName || req.user.fullName || 'Người dùng',
+        authorRole: addedComment.authorId?.role || req.user.role || 'patient',
+        authorAvatar: addedComment.authorId?.avatar,
+        createdAt: addedComment.createdAt
+      },
+      totalComments: updatedDiscussion.comments.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 6. Thích / Bỏ thích câu hỏi (Toggle Like - Chống like spam nhiều lần)
+// @route   PATCH /api/discussions/:id/like
+// @access  Private (verifyToken)
+exports.toggleLike = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const discussion = await Discussion.findById(id);
+
+    if (!discussion) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy câu hỏi này.'
+      });
+    }
+
+    discussion.likes = discussion.likes || [];
+    const userIdStr = req.user.id.toString();
+
+    const existingIndex = discussion.likes.findIndex(
+      (likeId) => likeId.toString() === userIdStr
+    );
+
+    let isLiked = false;
+    if (existingIndex > -1) {
+      // Đã thích -> Bỏ thích (Unlike)
+      discussion.likes.splice(existingIndex, 1);
+      isLiked = false;
+    } else {
+      // Chưa thích -> Thêm lượt thích (Like)
+      discussion.likes.push(req.user.id);
+      isLiked = true;
+    }
+
+    await discussion.save();
+
+    res.status(200).json({
+      success: true,
+      isLiked,
+      likesCount: discussion.likes.length,
+      message: isLiked ? 'Đã thích câu hỏi này.' : 'Đã bỏ thích câu hỏi này.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
