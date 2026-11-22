@@ -5,10 +5,11 @@ import {
   Search, 
   Filter, 
   CheckCircle2, 
-  Sparkles,
-  HelpCircle,
-  ThumbsUp,
-  MessageSquare
+  Sparkles, 
+  HelpCircle, 
+  ThumbsUp, 
+  MessageSquare,
+  CalendarCheck
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -22,6 +23,7 @@ import QuestionFormModal from './QuestionFormModal';
 import ReviewModal from './ReviewModal';
 import QuestionDetailModal from './QuestionDetailModal';
 import DoctorReviewsTab from './DoctorReviewsTab';
+import AppointmentHistory from './AppointmentHistory';
 
 const INITIAL_MOCK_QUESTIONS = [
   {
@@ -167,6 +169,53 @@ const INITIAL_MOCK_REVIEWS = [
   }
 ];
 
+const INITIAL_MOCK_APPOINTMENTS = [
+  {
+    id: 'MED-7821',
+    doctorId: 'doc_hung',
+    doctorName: 'BSCKII. Lê Văn Hùng',
+    specialty: 'Thần kinh',
+    date: '2026-11-20',
+    timeSlot: '08:30 - 09:00',
+    status: 'completed',
+    diagnosis: 'Đau nửa đầu Migraine kèm căng thẳng thị giác do làm việc máy tính quá mức. Đã đo lưu huyết não, chỉ định nghỉ ngơi 20-20-20 và dùng thuốc giãn cơ.',
+    isReviewed: true
+  },
+  {
+    id: 'MED-9021',
+    doctorId: 'doc_mai',
+    doctorName: 'ThS.BS. Trần Thị Mai',
+    specialty: 'Nhi khoa',
+    date: '2026-11-21',
+    timeSlot: '09:30 - 10:00',
+    status: 'completed',
+    diagnosis: 'Viêm đường hô hấp trên nhẹ ở trẻ nhỏ. Thân nhiệt hạ ổn định, họng đỏ nhẹ, dặn dò dinh dưỡng bổ sung oresol và siro thảo dược.',
+    isReviewed: false
+  },
+  {
+    id: 'MED-4319',
+    doctorId: 'doc_an',
+    doctorName: 'BSCKII. Nguyễn Văn An',
+    specialty: 'Tim mạch',
+    date: '2026-11-25',
+    timeSlot: '14:00 - 14:30',
+    status: 'confirmed',
+    diagnosis: 'Ca hẹn kiểm tra định kỳ huyết áp và điện tâm đồ. Bệnh nhân vui lòng mang theo kết quả khám lần trước và đến trước 15 phút.',
+    isReviewed: false
+  },
+  {
+    id: 'MED-6102',
+    doctorId: 'doc_nam',
+    doctorName: 'TS.BS. Lê Hoàng Nam',
+    specialty: 'Cơ xương khớp',
+    date: '2026-11-18',
+    timeSlot: '10:00 - 10:30',
+    status: 'cancelled',
+    diagnosis: 'Bệnh nhân báo bận lịch công tác đột xuất, hệ thống đã xác nhận hủy ca khám và hoàn 100% tiền cọc tự động qua VietQR.',
+    isReviewed: false
+  }
+];
+
 const SPECIALTY_FILTERS = [
   'Tất cả',
   'Thần kinh',
@@ -181,17 +230,18 @@ const SPECIALTY_FILTERS = [
  * Đảm nhiệm:
  * 1. Tab "Diễn đàn Hỏi - Đáp": Thảo luận sức khỏe, tìm kiếm useDebounce, lọc chuyên khoa.
  * 2. Tab "Đánh giá Bác sĩ": Điểm số trung bình useMemo, thống kê lượt đánh giá, danh sách công khai.
- * 3. ReviewModal: Chống spam, cập nhật tức thì vào danh sách đánh giá.
+ * 3. Tab "Lịch sử khám của tôi": Xem hồ sơ ca khám, mở đánh giá gắn mã ca khám, chặn đánh giá trùng lặp.
  */
 const QnAPage = () => {
   const { user } = useAuth();
 
-  // State tab chuyển đổi: 'qna' | 'reviews'
+  // State tab chuyển đổi: 'qna' | 'reviews' | 'history'
   const [activeTab, setActiveTab] = useState('qna');
 
-  // State danh sách câu hỏi và danh sách đánh giá
+  // State danh sách câu hỏi, đánh giá và lịch sử ca khám
   const [questions, setQuestions] = useState(INITIAL_MOCK_QUESTIONS);
   const [reviews, setReviews] = useState(INITIAL_MOCK_REVIEWS);
+  const [appointments, setAppointments] = useState(INITIAL_MOCK_APPOINTMENTS);
   
   // State tìm kiếm và lọc trong tab QnA
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,10 +249,31 @@ const QnAPage = () => {
   const [selectedSpecialty, setSelectedSpecialty] = useState('Tất cả');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'doctor_answered' | 'unanswered'
 
-  // State quản lý Modals
+  // State quản lý Modals & đối tượng bác sĩ khi mở đánh giá
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedDoctorForReview, setSelectedDoctorForReview] = useState(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [selectedQuestionForDetail, setSelectedQuestionForDetail] = useState(null);
+
+  // Mở modal đánh giá chung (tự chọn bác sĩ qua dropdown)
+  const handleOpenGenericReview = () => {
+    setSelectedDoctorForReview(null);
+    setSelectedAppointmentId(null);
+    setIsReviewModalOpen(true);
+  };
+
+  // Mở modal đánh giá gắn với một ca khám cụ thể (khóa cố định bác sĩ)
+  const handleOpenReviewForAppointment = (appointment) => {
+    setSelectedDoctorForReview({
+      id: appointment.doctorId,
+      name: appointment.doctorName,
+      specialty: appointment.specialty,
+      appointmentId: appointment.id
+    });
+    setSelectedAppointmentId(appointment.id);
+    setIsReviewModalOpen(true);
+  };
 
   // Xử lý Thích câu hỏi (Optimistic UI Update)
   const handleLikeQuestion = (questionId) => {
@@ -241,8 +312,10 @@ const QnAPage = () => {
     setQuestions((prev) => [newQuestion, ...prev]);
   };
 
-  // Xử lý Gửi đánh giá bác sĩ mới -> Cập nhật ngay vào state reviews và chuyển tab
+  // Xử lý Gửi đánh giá bác sĩ mới -> Cập nhật reviews, cập nhật ca khám thành "Đã đánh giá", chuyển tab
   const handleSubmitReview = async (reviewData) => {
+    const appCode = reviewData.appointmentId || selectedAppointmentId || `MED-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newRev = {
       id: `rev_${Date.now()}`,
       patientName: user?.name || 'Nguyễn Thuỳ Linh (Bệnh nhân)',
@@ -252,15 +325,24 @@ const QnAPage = () => {
       rating: Number(reviewData.rating),
       comment: reviewData.comment,
       createdAt: new Date().toISOString().split('T')[0],
-      appointmentId: reviewData.appointmentId || `MED-${Math.floor(1000 + Math.random() * 9000)}`,
+      appointmentId: appCode,
       verified: true
     };
 
-    // Cập nhật danh sách đánh giá ngay lập tức (Optimistic UI)
+    // 1. Cập nhật danh sách đánh giá công khai
     setReviews((prev) => [newRev, ...prev]);
     
-    // Tự động chuyển người dùng sang tab "Đánh giá Bác sĩ" để kiểm tra kết quả vừa đăng
+    // 2. Nếu ca khám này có trong danh sách lịch sử, cập nhật isReviewed: true để khóa nút
+    setAppointments((prev) =>
+      prev.map((app) =>
+        app.id === appCode ? { ...app, isReviewed: true } : app
+      )
+    );
+
+    // 3. Tự động chuyển người dùng sang tab "Đánh giá Bác sĩ" để kiểm tra kết quả vừa đăng
     setActiveTab('reviews');
+    setSelectedDoctorForReview(null);
+    setSelectedAppointmentId(null);
   };
 
   // Xử lý Thêm bình luận vào câu hỏi chi tiết
@@ -339,7 +421,7 @@ const QnAPage = () => {
             <Button
               variant="outline"
               size="md"
-              onClick={() => setIsReviewModalOpen(true)}
+              onClick={handleOpenGenericReview}
               className="bg-white/80 dark:bg-slate-800 hover:shadow-sm"
             >
               <Star className="w-4 h-4 mr-2 text-amber-500 fill-amber-400" />
@@ -358,12 +440,13 @@ const QnAPage = () => {
         </div>
       </div>
 
-      {/* Điều Hướng 2 Tabs: "Diễn đàn Hỏi - Đáp" & "Đánh giá Bác sĩ" */}
-      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+      {/* Điều Hướng 3 Tabs */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto no-scrollbar">
+        {/* Tab 1: Diễn đàn Hỏi - Đáp */}
         <button
           type="button"
           onClick={() => setActiveTab('qna')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all shrink-0 ${
             activeTab === 'qna'
               ? 'bg-primary-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -382,10 +465,11 @@ const QnAPage = () => {
           </span>
         </button>
 
+        {/* Tab 2: Đánh giá Bác sĩ */}
         <button
           type="button"
           onClick={() => setActiveTab('reviews')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all shrink-0 ${
             activeTab === 'reviews'
               ? 'bg-primary-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -401,6 +485,29 @@ const QnAPage = () => {
             }`}
           >
             {reviews.length}
+          </span>
+        </button>
+
+        {/* Tab 3: Lịch sử khám của tôi */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all shrink-0 ${
+            activeTab === 'history'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <CalendarCheck className="w-4 h-4 text-emerald-500" />
+          <span>Lịch sử khám của tôi</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              activeTab === 'history'
+                ? 'bg-primary-700 text-white'
+                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {appointments.length}
           </span>
         </button>
       </div>
@@ -518,6 +625,16 @@ const QnAPage = () => {
         </div>
       )}
 
+      {/* Nội Dung Tab 3: Lịch Sử Khám Của Tôi (AppointmentHistory) */}
+      {activeTab === 'history' && (
+        <div className="animate-fade-in">
+          <AppointmentHistory
+            appointments={appointments}
+            onReviewDoctor={handleOpenReviewForAppointment}
+          />
+        </div>
+      )}
+
       {/* Modal Đặt Câu Hỏi */}
       <QuestionFormModal
         isOpen={isQuestionModalOpen}
@@ -528,8 +645,14 @@ const QnAPage = () => {
       {/* Modal Đánh Giá Bác Sĩ (Chống spam) */}
       <ReviewModal
         isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
+        onClose={() => {
+          setIsReviewModalOpen(false);
+          setSelectedDoctorForReview(null);
+          setSelectedAppointmentId(null);
+        }}
         onSubmitReview={handleSubmitReview}
+        doctor={selectedDoctorForReview}
+        appointmentId={selectedAppointmentId}
       />
 
       {/* Modal Chi Tiết Thảo Luận & Bình Luận */}
