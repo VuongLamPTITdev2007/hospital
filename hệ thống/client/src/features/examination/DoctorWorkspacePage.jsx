@@ -64,6 +64,16 @@ const FALLBACK_PATIENTS = [
   }
 ];
 
+// Chuẩn hóa tiếng Việt (bỏ dấu & viết thường) để tìm được cả "Thùy", "Thuỳ" lẫn "thuy"
+const normalizeText = (str = '') =>
+  str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+
 const DoctorWorkspacePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -145,14 +155,14 @@ const DoctorWorkspacePage = () => {
     return { total, waiting, inProgress, completed, rate };
   }, [patients]);
 
-  // Lọc danh sách bệnh nhân theo từ khóa đã debounce
+  // Lọc danh sách bệnh nhân theo từ khóa đã debounce (hỗ trợ tiếng Việt không dấu & khác kiểu bỏ dấu)
   const filteredPatients = useMemo(() => {
-    if (!debouncedSearch.trim()) return patients;
-    const term = debouncedSearch.toLowerCase();
+    const term = normalizeText(debouncedSearch);
+    if (!term) return patients;
     return patients.filter((p) => {
-      const name = (p.patientName || p.patientId?.fullName || '').toLowerCase();
-      const phone = (p.patientPhone || p.patientId?.phone || '').toLowerCase();
-      const sym = (p.symptomsNote || p.symptoms || '').toLowerCase();
+      const name = normalizeText(p.patientName || p.patientId?.fullName || '');
+      const phone = normalizeText(p.patientPhone || p.patientId?.phone || '');
+      const sym = normalizeText(p.symptomsNote || p.symptoms || '');
       return name.includes(term) || phone.includes(term) || sym.includes(term);
     });
   }, [patients, debouncedSearch]);
