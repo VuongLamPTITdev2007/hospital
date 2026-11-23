@@ -4,14 +4,14 @@ import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import StarRating from './StarRating';
 
-// Danh sách bác sĩ mẫu hiển thị trong dropdown khi không nhận prop doctor
+// Danh sách bác sĩ thực tế từ cơ sở dữ liệu MongoDB Atlas
 const SAMPLE_DOCTORS = [
-  { id: 'doc_hung', name: 'BSCKII. Lê Văn Hùng', specialty: 'Thần kinh' },
-  { id: 'doc_an', name: 'BSCKII. Nguyễn Văn An', specialty: 'Tim mạch' },
-  { id: 'doc_mai', name: 'ThS.BS. Trần Thị Mai', specialty: 'Nhi khoa' },
-  { id: 'doc_nam', name: 'TS.BS. Lê Hoàng Nam', specialty: 'Cơ xương khớp' },
-  { id: 'doc_phuong_mai', name: 'BSCKI. Vũ Thị Phương Mai', specialty: 'Da liễu' },
-  { id: 'doc_dat', name: 'ThS.BS. Phạm Quốc Đạt', specialty: 'Tai Mũi Họng' }
+  { id: '6b03494fe51ed7615dd8a24a', name: 'PGS.TS.BS. Nguyễn Văn Liệu', specialty: 'Thần kinh' },
+  { id: '6b03494ee51ed7615dd8a229', name: 'PGS.TS.BS. Nguyễn Lân Hiếu', specialty: 'Tim mạch' },
+  { id: '6b03494ee51ed7615dd8a231', name: 'PGS.TS.BS. Nguyễn Tiến Dũng', specialty: 'Nhi khoa' },
+  { id: '6b03494fe51ed7615dd8a239', name: 'PGS.TS.BS. Nguyễn Vĩnh Ngọc', specialty: 'Cơ xương khớp' },
+  { id: '6b03494fe51ed7615dd8a242', name: 'GS.TS.BS. Đào Văn Long', specialty: 'Tiêu hóa - Gan mật' },
+  { id: '6b03494fe51ed7615dd8a253', name: 'PGS.TS.BS. Phạm Thị Lan', specialty: 'Da liễu' }
 ];
 
 /**
@@ -101,7 +101,7 @@ const ReviewModal = ({
 
     try {
       const reviewPayload = {
-        appointmentId: appointmentId || doctor?.appointmentId || `mock_app_${Date.now()}`,
+        appointmentId: appointmentId || doctor?.appointmentId,
         doctorId: activeDoctor.id,
         doctorName: activeDoctor.name,
         specialty: activeDoctor.specialty,
@@ -142,7 +142,7 @@ const ReviewModal = ({
             Cảm ơn bạn đã đóng góp đánh giá!
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Phản hồi của bạn đã được ghi nhận và cập nhật vào điểm số uy tín của Bác sĩ.
+            Phản hồi của bạn đã được ghi nhận và cập nhật vào điểm số uy tín của Bác sĩ trên MongoDB.
           </p>
         </div>
       ) : (
@@ -196,7 +196,7 @@ const ReviewModal = ({
           <div className="flex items-start space-x-2 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/60">
             <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
             <span>
-              Quy chuẩn xác thực: Hệ thống chỉ ghi nhận đánh giá từ những bệnh nhân đã hoàn tất ca khám thực tế tại MedCare.
+              Quy chuẩn xác thực: Hệ thống chỉ ghi nhận đánh giá từ những ca khám đã hoàn tất thực tế tại MedCare.
             </span>
           </div>
 

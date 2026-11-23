@@ -1,31 +1,62 @@
 import React from 'react';
-import { MessageCircle, Eye, ThumbsUp, UserCircle, Tag } from 'lucide-react';
+import { MessageCircle, Eye, ThumbsUp, UserCircle, Tag, Trash2 } from 'lucide-react';
 import DoctorAnswerBadge from './DoctorAnswerBadge';
 
 /**
  * Component: QuestionCard
  * Thẻ hiển thị một câu hỏi y khoa trong danh sách diễn đàn
- * @param {Object} question - Đối tượng câu hỏi
- * @param {Function} onLike - Callback khi bấm Like
- * @param {Function} onOpenDetail - Callback khi muốn xem chi tiết / bình luận
+ * Bổ sung nút Xóa (DELETE) cho tác giả bài viết hoặc Admin
  */
-const QuestionCard = ({ question, onLike, onOpenDetail }) => {
+const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser }) => {
   const {
-    id,
+    _id,
+    id = _id,
     author = 'Người dùng ẩn danh',
+    authorId,
     title,
     content,
-    specialty = 'Đa khoa',
+    specialtyName,
+    specialty = specialtyName || 'Đa khoa',
     tags = [],
     doctorAnswer,
     comments = [],
-    likes = 0,
+    likes = [],
+    likesCount = Array.isArray(likes) ? likes.length : Number(likes) || 0,
     views = 0,
     isLiked = false,
     createdAt
   } = question;
 
-  const commentCount = comments.length || (doctorAnswer ? 1 : 0);
+  // Nhận diện phản hồi của bác sĩ (từ doctorAnswer hoặc từ comments có c.isDoctorAnswer = true)
+  const doctorComment = doctorAnswer || comments.find((c) => c.isDoctorAnswer);
+  const formattedDoctorAnswer = doctorComment
+    ? {
+        doctorName:
+          doctorComment.authorName ||
+          doctorComment.authorId?.fullName ||
+          doctorComment.doctorName ||
+          'Bác sĩ chuyên khoa',
+        specialty: doctorComment.specialty || specialtyName || specialty || 'Đa khoa',
+        answer: doctorComment.content || doctorComment.answer,
+        date: doctorComment.createdAt
+          ? new Date(doctorComment.createdAt).toLocaleDateString('vi-VN')
+          : doctorComment.date || 'Gần đây'
+      }
+    : null;
+
+  // Kiểm tra quyền xóa bài: tác giả hoặc Admin
+  const currentUserId = currentUser?.id || currentUser?._id;
+  const authorUserId = typeof authorId === 'object' ? (authorId?._id || authorId?.id) : authorId;
+  const isOwner = Boolean(currentUserId && authorUserId && currentUserId.toString() === authorUserId.toString());
+  const isAdmin = currentUser?.role === 'admin';
+  const canDelete = isOwner || isAdmin;
+
+  const commentCount = comments.length || (formattedDoctorAnswer ? 1 : 0);
+
+  // Xử lý hiển thị ngày tạo
+  const displayDate = createdAt
+    ? (createdAt.includes('T') ? createdAt.split('T')[0] : createdAt)
+    : 'Gần đây';
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow space-y-4">
@@ -39,11 +70,9 @@ const QuestionCard = ({ question, onLike, onOpenDetail }) => {
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
               {author}
             </span>
-            {createdAt && (
-              <span className="block text-[11px] text-slate-400">
-                {createdAt}
-              </span>
-            )}
+            <span className="block text-[11px] text-slate-400">
+              {displayDate}
+            </span>
           </div>
         </div>
 
@@ -51,10 +80,25 @@ const QuestionCard = ({ question, onLike, onOpenDetail }) => {
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300">
             {specialty}
           </span>
-          {doctorAnswer && (
+          {formattedDoctorAnswer && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
               ✓ Đã có BS trả lời
             </span>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm('Bạn có chắc chắn muốn xóa câu hỏi này khỏi diễn đàn?')) {
+                  onDelete && onDelete(_id || id);
+                }
+              }}
+              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+              title="Xóa câu hỏi (Quyền chính chủ/Admin)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       </div>
@@ -85,12 +129,12 @@ const QuestionCard = ({ question, onLike, onOpenDetail }) => {
       )}
 
       {/* Doctor Answer Preview */}
-      {doctorAnswer && (
+      {formattedDoctorAnswer && (
         <DoctorAnswerBadge
-          doctorName={doctorAnswer.doctorName}
-          specialty={doctorAnswer.specialty || specialty}
-          answer={doctorAnswer.answer}
-          date={doctorAnswer.date}
+          doctorName={formattedDoctorAnswer.doctorName}
+          specialty={formattedDoctorAnswer.specialty}
+          answer={formattedDoctorAnswer.answer}
+          date={formattedDoctorAnswer.date}
         />
       )}
 
@@ -110,7 +154,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail }) => {
             }`}
           >
             <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-primary-600 dark:fill-primary-400' : ''}`} />
-            <span>{likes} {isLiked ? 'Đã thích' : 'Hữu ích'}</span>
+            <span>{likesCount} {isLiked ? 'Đã thích' : 'Hữu ích'}</span>
           </button>
 
           <span className="flex items-center space-x-1">

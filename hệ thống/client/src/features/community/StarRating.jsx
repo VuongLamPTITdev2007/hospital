@@ -17,7 +17,8 @@ const StarRating = ({
   size = 'md',
   interactive = false,
   onChange,
-  showLabel = false
+  showLabel = false,
+  showScore = true
 }) => {
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -69,7 +70,7 @@ const StarRating = ({
             </button>
           );
         })}
-        {!interactive && (
+        {!interactive && showScore && (
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1.5">
             {rating.toFixed(1)} / {maxRating}
           </span>

@@ -59,6 +59,53 @@ const DoctorReviewsTab = ({ reviews = [] }) => {
     };
   }, [reviews]);
 
+  // Bác sĩ đang được chọn để xem chi tiết phân bố (hoặc toàn bộ nếu ALL)
+  const activeDoctor = useMemo(() => {
+    if (selectedDoctorFilter === 'ALL') return null;
+    return doctorStats.find((d) => d.doctorId === selectedDoctorFilter);
+  }, [doctorStats, selectedDoctorFilter]);
+
+  // Thống kê cho đối tượng đang chọn (Bác sĩ cụ thể hoặc Toàn phòng khám)
+  const activeStats = useMemo(() => {
+    const targetReviews = selectedDoctorFilter === 'ALL'
+      ? reviews
+      : reviews.filter((r) => r.doctorId === selectedDoctorFilter);
+
+    const count = targetReviews.length;
+    if (count === 0) {
+      return { avg: 5.0, count: 0, recommendPercent: 100 };
+    }
+
+    const totalStars = targetReviews.reduce((sum, r) => sum + Number(r.rating || 5), 0);
+    const positiveReviews = targetReviews.filter((r) => Number(r.rating) >= 4).length;
+
+    return {
+      avg: Number((totalStars / count).toFixed(1)),
+      count,
+      recommendPercent: Math.round((positiveReviews / count) * 100)
+    };
+  }, [reviews, selectedDoctorFilter]);
+
+  // Thống kê phân bố số sao (Rating Breakdown: 5 sao -> 1 sao)
+  const ratingBreakdown = useMemo(() => {
+    const targetReviews = selectedDoctorFilter === 'ALL'
+      ? reviews
+      : reviews.filter((r) => r.doctorId === selectedDoctorFilter);
+
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    targetReviews.forEach((r) => {
+      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5)));
+      counts[star] = (counts[star] || 0) + 1;
+    });
+
+    const total = targetReviews.length;
+    return [5, 4, 3, 2, 1].map((star) => ({
+      star,
+      count: counts[star],
+      percent: total > 0 ? Math.round((counts[star] / total) * 100) : 0
+    }));
+  }, [reviews, selectedDoctorFilter]);
+
   // 2. Lọc danh sách đánh giá theo bác sĩ và số sao
   const filteredReviews = useMemo(() => {
     return reviews.filter((r) => {
@@ -71,15 +118,88 @@ const DoctorReviewsTab = ({ reviews = [] }) => {
   return (
     <div className="space-y-6">
       {/* Khối Thống Kê Tổng Quan & Thẻ Điểm Số Bác Sĩ */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div>
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
             <Award className="w-5 h-5 mr-2 text-amber-500" />
             Điểm Uy Tín & Đánh Giá Chất Lượng Bác Sĩ
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Tổng hợp điểm sao trung bình thực tế từ {overallStats.count} lượt khám đã hoàn tất.
-          </p>
+        </div>
+
+        {/* Khối Tóm Tắt & Phân Bố Sao (Rating Breakdown) */}
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            {/* Cột Trái: Điểm trung bình tổng quan */}
+            <div className="md:col-span-5 flex flex-col items-center justify-center text-center p-3 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-700/60 space-y-2">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {activeDoctor ? `Điểm đánh giá: ${activeDoctor.doctorName}` : 'Đánh giá toàn phòng khám'}
+              </span>
+              <div className="flex items-baseline space-x-1">
+                <span className="text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+                  {activeStats.avg.toFixed(1)}
+                </span>
+                <span className="text-lg font-bold text-slate-400">/ 5.0</span>
+              </div>
+              <StarRating rating={Math.round(activeStats.avg)} size="md" interactive={false} showScore={false} />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Dựa trên <span className="font-semibold text-slate-700 dark:text-slate-200">{activeStats.count}</span> lượt khám thực tế
+              </p>
+              {activeStats.count > 0 && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+                  ✓ {activeStats.recommendPercent}% bệnh nhân hài lòng
+                </span>
+              )}
+            </div>
+
+            {/* Cột Phải: 5 thanh phân bố sao (5 sao -> 1 sao) */}
+            <div className="md:col-span-7 space-y-2">
+              <div className="flex items-center justify-between pb-1 text-xs text-slate-400">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Phân bố số sao</span>
+                <span>(Bấm vào mức sao để lọc nhận xét)</span>
+              </div>
+
+              {ratingBreakdown.map((item) => {
+                const isFilterActive = ratingFilter === item.star.toString();
+                return (
+                  <div
+                    key={item.star}
+                    onClick={() => setRatingFilter(isFilterActive ? 'ALL' : item.star.toString())}
+                    className={`flex items-center space-x-3 p-1.5 rounded-xl cursor-pointer transition-all ${
+                      isFilterActive
+                        ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-400/50'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'
+                    }`}
+                    title={`Lọc xem các đánh giá ${item.star} sao`}
+                  >
+                    <div className="flex items-center space-x-1 w-14 shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span>{item.star}</span>
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    </div>
+
+                    {/* Thanh Progress bar */}
+                    <div className="flex-1 h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.star >= 4
+                            ? 'bg-amber-400'
+                            : item.star === 3
+                            ? 'bg-amber-500'
+                            : 'bg-rose-400'
+                        }`}
+                        style={{ width: `${item.percent}%` }}
+                      />
+                    </div>
+
+                    {/* Số lượng và % */}
+                    <div className="w-20 text-right text-xs font-mono text-slate-500 dark:text-slate-400 shrink-0">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{item.count}</span>
+                      <span className="text-[11px] ml-1">({item.percent}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Lưới các thẻ tổng quan bác sĩ */}
@@ -154,7 +274,7 @@ const DoctorReviewsTab = ({ reviews = [] }) => {
           {/* Lọc nhanh theo số sao */}
           <div className="flex items-center space-x-1 text-xs">
             <span className="text-slate-400 text-xs mr-1">Xếp hạng:</span>
-            {['ALL', '5', '4', '3'].map((st) => (
+            {['ALL', '5', '4', '3', '2', '1'].map((st) => (
               <button
                 key={st}
                 type="button"

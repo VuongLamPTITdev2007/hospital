@@ -9,16 +9,33 @@ import {
   FileText, 
   Stethoscope, 
   Filter, 
-  ShieldCheck, 
   Check,
   UserCheck
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 
+// Định dạng mã ca khám: 8 ký tự cuối viết hoa dạng #CAC2C76F
+const formatAppointmentCode = (rawId) => {
+  if (!rawId) return '#MEDCARE';
+  const str = String(rawId);
+  return '#' + str.slice(-8).toUpperCase();
+};
+
+// Đồng bộ định dạng ngày tháng sang chuẩn Việt Nam DD/MM/YYYY (ví dụ: 26/11/2026)
+const formatDateVN = (rawDate) => {
+  if (!rawDate) return '';
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return String(rawDate);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 /**
  * Component: AppointmentHistory
  * Quản lý tab "Lịch sử khám của tôi" của Bệnh nhân
- * - Hiển thị danh sách ca khám mẫu với 3 trạng thái: Đã hoàn thành, Đã đặt lịch, Đã hủy
+ * - Hiển thị danh sách ca khám với 3 trạng thái: Đã hoàn thành, Đã đặt lịch, Đã hủy
  * - Lọc theo trạng thái
  * - Nghiệp vụ chống spam: Chỉ ca khám Đã hoàn thành và Chưa đánh giá mới mở nút "Đánh giá bác sĩ"
  * - Khi đã đánh giá: Đổi nút thành "Đã đánh giá" và vô hiệu hóa nút
@@ -78,7 +95,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
   return (
     <div className="space-y-6">
       {/* Tiêu đề & Giới thiệu tab */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm">
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center">
             <UserCheck className="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" />
@@ -87,11 +104,6 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Theo dõi tiến trình ca khám, kết quả chẩn đoán của bác sĩ và đóng góp đánh giá dịch vụ sau khi buổi khám kết thúc.
           </p>
-        </div>
-
-        <div className="flex items-center space-x-2 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-900/60 shrink-0">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Xác thực bởi MedCare EHR System</span>
         </div>
       </div>
 
@@ -170,19 +182,19 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
 
             return (
               <div
-                key={app.id}
+                key={app.id || app._id}
                 className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow space-y-4"
               >
                 {/* Header ca khám: Mã + Ngày giờ + Trạng thái */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/60 pb-3.5">
                   <div className="flex items-center space-x-3">
                     <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      Mã: {app.id}
+                      Mã: {formatAppointmentCode(app.id || app._id)}
                     </span>
                     <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400">
                       <span className="flex items-center">
                         <Calendar className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                        {app.date}
+                        {formatDateVN(app.date)}
                       </span>
                       <span>•</span>
                       <span className="flex items-center">

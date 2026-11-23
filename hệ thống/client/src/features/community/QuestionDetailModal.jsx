@@ -21,12 +21,15 @@ const QuestionDetailModal = ({
 
   if (!question) return null;
 
+  // Lấy chính xác mã định danh MongoDB (_id hoặc id)
+  const questionId = question._id || question.id;
+
   const {
-    id,
     author = 'Người dùng ẩn danh',
     title,
     content,
-    specialty = 'Đa khoa',
+    specialtyName,
+    specialty = specialtyName || 'Đa khoa',
     tags = [],
     doctorAnswer,
     comments = [],
@@ -36,8 +39,42 @@ const QuestionDetailModal = ({
 
   const isDoctor = currentUser?.role === 'doctor';
 
+  // Định dạng ngày giờ chuẩn tiếng Việt
+  const formattedDate = createdAt
+    ? new Date(createdAt).toLocaleString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+    : '';
+
+  // Nhận diện phản hồi của bác sĩ (từ doctorAnswer hoặc từ danh sách comments có c.isDoctorAnswer = true)
+  const doctorComment = doctorAnswer || comments.find((c) => c.isDoctorAnswer);
+  const formattedDoctorAnswer = doctorComment
+    ? {
+        doctorName:
+          doctorComment.authorName ||
+          doctorComment.authorId?.fullName ||
+          doctorComment.doctorName ||
+          'Bác sĩ chuyên khoa',
+        specialty: doctorComment.specialty || specialtyName || specialty || 'Đa khoa',
+        answer: doctorComment.content || doctorComment.answer,
+        date: doctorComment.createdAt
+          ? new Date(doctorComment.createdAt).toLocaleDateString('vi-VN')
+          : doctorComment.date || 'Gần đây'
+      }
+    : null;
+
   const handleSendComment = async (e) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      setError('Vui lòng đăng nhập để gửi phản hồi hoặc tư vấn cho câu hỏi này.');
+      return;
+    }
+
     if (!commentText.trim()) {
       setError('Vui lòng nhập nội dung phản hồi.');
       return;
@@ -48,7 +85,7 @@ const QuestionDetailModal = ({
 
     try {
       const payload = {
-        questionId: id,
+        questionId,
         content: commentText.trim(),
         isDoctorAnswer: isDoctor
       };
@@ -78,7 +115,7 @@ const QuestionDetailModal = ({
               <span className="font-semibold text-slate-700 dark:text-slate-300">
                 {author}
               </span>
-              {createdAt && <span>• {createdAt}</span>}
+              {formattedDate && <span>• {formattedDate}</span>}
             </div>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
               Khoa {specialty}
@@ -93,16 +130,16 @@ const QuestionDetailModal = ({
         </div>
 
         {/* Phản hồi chính thức của Bác sĩ nếu có */}
-        {doctorAnswer && (
+        {formattedDoctorAnswer && (
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
               Phản hồi chính thức từ Chuyên gia
             </h4>
             <DoctorAnswerBadge
-              doctorName={doctorAnswer.doctorName}
-              specialty={doctorAnswer.specialty || specialty}
-              answer={doctorAnswer.answer}
-              date={doctorAnswer.date}
+              doctorName={formattedDoctorAnswer.doctorName}
+              specialty={formattedDoctorAnswer.specialty}
+              answer={formattedDoctorAnswer.answer}
+              date={formattedDoctorAnswer.date}
             />
           </div>
         )}
@@ -122,7 +159,7 @@ const QuestionDetailModal = ({
             <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
               {comments.map((cmt, idx) => (
                 <div
-                  key={idx}
+                  key={cmt._id || idx}
                   className={`p-3 rounded-xl border text-xs sm:text-sm ${
                     cmt.isDoctorAnswer
                       ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800'
@@ -131,16 +168,18 @@ const QuestionDetailModal = ({
                 >
                   <div className="flex items-center justify-between mb-1 text-xs">
                     <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center">
-                      {cmt.authorName || 'Thành viên'}
+                      {cmt.authorName || cmt.authorId?.fullName || (cmt.isDoctorAnswer ? 'Bác sĩ chuyên khoa' : 'Thành viên')}
                       {cmt.isDoctorAnswer && (
                         <span className="ml-1.5 px-1.5 py-0.2 bg-primary-100 text-primary-700 rounded text-[10px] font-bold">
                           Bác sĩ
                         </span>
                       )}
                     </span>
-                    <span className="text-[11px] text-slate-400">{cmt.time || 'Vừa xong'}</span>
+                    <span className="text-[11px] text-slate-400">
+                      {cmt.createdAt ? new Date(cmt.createdAt).toLocaleString('vi-VN') : (cmt.time || 'Vừa xong')}
+                    </span>
                   </div>
-                  <p className="text-slate-600 dark:text-slate-300">{cmt.content}</p>
+                  <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">{cmt.content}</p>
                 </div>
               ))}
             </div>
@@ -163,21 +202,27 @@ const QuestionDetailModal = ({
             </div>
           )}
 
-          <div className="flex gap-2">
-            <textarea
-              rows={2}
-              value={commentText}
-              onChange={(e) => {
-                setCommentText(e.target.value);
-                if (error) setError('');
-              }}
-              placeholder={isDoctor ? 'Nhập lời khuyên chuyên môn gửi bệnh nhân...' : 'Nhập câu hỏi phụ hoặc chia sẻ kinh nghiệm...'}
-              className="flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <Button type="submit" variant="primary" size="sm" loading={isSubmitting} className="self-end px-4">
-              <Send className="w-4 h-4 mr-1" /> Gửi
-            </Button>
-          </div>
+          {!currentUser ? (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 rounded-xl text-xs flex items-center justify-between">
+              <span>Vui lòng đăng nhập để gửi phản hồi hoặc trả lời câu hỏi này.</span>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <textarea
+                rows={2}
+                value={commentText}
+                onChange={(e) => {
+                  setCommentText(e.target.value);
+                  if (error) setError('');
+                }}
+                placeholder={isDoctor ? 'Nhập lời khuyên chuyên môn gửi bệnh nhân...' : 'Nhập câu hỏi phụ hoặc chia sẻ kinh nghiệm...'}
+                className="flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <Button type="submit" variant="primary" size="sm" loading={isSubmitting} className="self-end px-4">
+                <Send className="w-4 h-4 mr-1" /> Gửi
+              </Button>
+            </div>
+          )}
         </form>
       </div>
     </Modal>

@@ -2,6 +2,7 @@ const Discussion = require('../models/Discussion');
 const Review = require('../models/Review');
 const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
+const Specialty = require('../models/Specialty');
 const User = require('../models/User');
 
 /**
@@ -14,18 +15,20 @@ const User = require('../models/User');
 
 // ==================== PHẦN 1: CRUD CÂU HỎI ====================
 
-// 1. Lấy danh sách câu hỏi cộng đồng (hỗ trợ lọc chuyên khoa, tìm kiếm từ khóa, phân trang)
+// 1. Lấy danh sách câu hỏi cộng đồng (hỗ trợ lọc chuyên khoa, tìm kiếm ranh giới từ tiếng Việt, phân trang)
 // @route   GET /api/discussions
 // @access  Public
 exports.getDiscussions = async (req, res, next) => {
   try {
-    const { search, specialty, page = 1, limit = 20 } = req.query;
+    const { search, specialty, page = 1, limit = 10 } = req.query;
 
     const query = {};
 
-    // Tìm kiếm từ khóa theo tiêu đề, nội dung hoặc tags
+    // Tìm kiếm từ khóa theo ranh giới từ tiếng Việt: (?<![\p{L}\p{N}])...(?![\p{L}\p{N}]) với cờ 'iu'
+    // Đảm bảo tìm 'ho' chỉ khớp từ 'ho' độc lập, không khớp nhầm vào 'cho', 'không', v.v.
     if (search && search.trim()) {
-      const keywordRegex = new RegExp(search.trim(), 'i');
+      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const keywordRegex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu');
       query.$or = [
         { title: keywordRegex },
         { content: keywordRegex },
@@ -35,20 +38,24 @@ exports.getDiscussions = async (req, res, next) => {
 
     // Lọc theo chuyên khoa (nếu có và khác 'Tất cả')
     if (specialty && specialty !== 'Tất cả') {
-      query.$or = query.$or || [];
       query.specialtyName = specialty;
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const skip = (pageNum - 1) * limitNum;
 
-    const discussions = await Discussion.find(query)
-      .populate('authorId', 'fullName role avatar')
-      .populate('comments.authorId', 'fullName role avatar')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit));
+    const [discussions, total] = await Promise.all([
+      Discussion.find(query)
+        .populate('authorId', 'fullName role avatar')
+        .populate('comments.authorId', 'fullName role avatar')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      Discussion.countDocuments(query)
+    ]);
 
-    const total = await Discussion.countDocuments(query);
+    const totalPages = Math.ceil(total / limitNum) || 1;
 
     // Xử lý dữ liệu trả về: che danh tính nếu người hỏi chọn ẩn danh
     const formattedDiscussions = discussions.map((doc) => {
@@ -66,8 +73,9 @@ exports.getDiscussions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       total,
-      page: Number(page),
-      totalPages: Math.ceil(total / Number(limit)),
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
       discussions: formattedDiscussions
     });
   } catch (error) {
