@@ -32,10 +32,10 @@ app.get('/api/health', (req, res) => {
 
 // Nạp các Routes
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/appointments', require('./routes/appointmentRoutes')); // Phân hệ TV 2: Booking Engine & Giữ chỗ 5p
 
-// Placeholders cho các Routes phân hệ của từng thành viên
+// Placeholders cho các Routes phân hệ khác
 // app.use('/api/doctors', require('./routes/doctorRoutes'));       // TV 1
-// app.use('/api/appointments', require('./routes/appointmentRoutes')); // TV 2
 // app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3
 // app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4
 // app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5
