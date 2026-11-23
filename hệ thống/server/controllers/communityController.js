@@ -1,11 +1,18 @@
 const Discussion = require('../models/Discussion');
+const Review = require('../models/Review');
+const Appointment = require('../models/Appointment');
+const DoctorProfile = require('../models/DoctorProfile');
 const User = require('../models/User');
 
 /**
  * Controller: communityController
  * Phân hệ TV 5: Diễn đàn Hỏi - Đáp Y tế & Đánh giá Bác sĩ
- * Phần 1: CRUD Câu hỏi Diễn đàn (GET, POST, DELETE)
+ * Phần 1: CRUD Câu hỏi Diễn đàn (getDiscussions, getDiscussionById, createDiscussion, deleteDiscussion)
+ * Phần 2: Bình luận & Toggle Like (addComment, toggleLike)
+ * Phần 3: Đánh giá Bác sĩ chống spam 3 lớp & Lịch sử khám (getMyAppointments, createReview, getReviews, getDoctorReviewsById)
  */
+
+// ==================== PHẦN 1: CRUD CÂU HỎI ====================
 
 // 1. Lấy danh sách câu hỏi cộng đồng (hỗ trợ lọc chuyên khoa, tìm kiếm từ khóa, phân trang)
 // @route   GET /api/discussions
@@ -109,7 +116,7 @@ exports.getDiscussionById = async (req, res, next) => {
 
 // 3. Đăng câu hỏi tư vấn y khoa mới
 // @route   POST /api/discussions
-// @access  Private (Yêu cầu đăng nhập - verifyToken)
+// @access  Private (verifyToken)
 exports.createDiscussion = async (req, res, next) => {
   try {
     const { title, content, specialty, specialtyId, tags, isAnonymous } = req.body;
@@ -145,7 +152,6 @@ exports.createDiscussion = async (req, res, next) => {
 
     const item = populatedDiscussion.toObject();
 
-    // Trả về mã chuẩn RESTful 201 Created khi tạo mới tài nguyên thành công
     res.status(201).json({
       success: true,
       message: 'Gửi câu hỏi tư vấn y khoa thành công!',
@@ -201,6 +207,8 @@ exports.deleteDiscussion = async (req, res, next) => {
   }
 };
 
+// ==================== PHẦN 2: BÌNH LUẬN & LIKE ====================
+
 // 5. Bình luận / Trả lời câu hỏi (Tự động nhận diện Bác sĩ trả lời)
 // @route   POST /api/discussions/:id/comments
 // @access  Private (verifyToken)
@@ -237,7 +245,6 @@ exports.addComment = async (req, res, next) => {
     discussion.comments.push(newComment);
     await discussion.save();
 
-    // Nạp lại thông tin người bình luận để trả về đầy đủ cho giao diện
     const updatedDiscussion = await Discussion.findById(id)
       .populate('comments.authorId', 'fullName role avatar');
 
@@ -305,6 +312,252 @@ exports.toggleLike = async (req, res, next) => {
       isLiked,
       likesCount: discussion.likes.length,
       message: isLiked ? 'Đã thích câu hỏi này.' : 'Đã bỏ thích câu hỏi này.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==================== PHẦN 3: ĐÁNH GIÁ BÁC SĨ & LỊCH SỬ KHÁM ====================
+
+// 7. Lấy danh sách ca khám của bệnh nhân đang đăng nhập (kèm trạng thái đã đánh giá hay chưa)
+// @route   GET /api/discussions/my-appointments
+// @access  Private (verifyToken)
+exports.getMyAppointments = async (req, res, next) => {
+  try {
+    const patientId = req.user.id;
+
+    // Tìm tất cả ca khám của bệnh nhân, nạp thông tin bác sĩ
+    const appointments = await Appointment.find({ patientId })
+      .populate('doctorId', 'fullName avatar role')
+      .populate({
+        path: 'doctorProfileId',
+        select: 'degree hospital specialtyId',
+        populate: { path: 'specialtyId', select: 'name' }
+      })
+      .sort({ createdAt: -1 });
+
+    // Lấy danh sách tất cả các đánh giá mà bệnh nhân này đã gửi
+    const patientReviews = await Review.find({ patientId }).select('appointmentId rating comment createdAt');
+    const reviewedMap = new Map(patientReviews.map((r) => [r.appointmentId.toString(), r]));
+
+    // Format kết quả trả về cho frontend
+    const formattedAppointments = appointments.map((app) => {
+      const isReviewed = reviewedMap.has(app._id.toString());
+      const reviewData = reviewedMap.get(app._id.toString()) || null;
+
+      return {
+        id: app._id,
+        doctorId: app.doctorId?._id || app.doctorId,
+        doctorName: app.doctorId?.fullName || 'Bác sĩ MedCare',
+        specialty: app.doctorProfileId?.specialtyId?.name || 'Đa khoa',
+        date: app.date,
+        timeSlot: app.timeSlot,
+        status: app.status,
+        diagnosis: app.symptomsNote || 'Chưa có ghi chú chẩn đoán bổ sung.',
+        fee: app.fee,
+        isReviewed,
+        review: reviewData
+          ? {
+              rating: reviewData.rating,
+              comment: reviewData.comment,
+              createdAt: reviewData.createdAt
+            }
+          : null
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: formattedAppointments.length,
+      appointments: formattedAppointments
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 8. Đánh giá Bác sĩ sau buổi khám (Hệ thống chống spam 3 lớp & Tính lại điểm số bác sĩ)
+// @route   POST /api/discussions/reviews
+// @access  Private (verifyToken)
+exports.createReview = async (req, res, next) => {
+  try {
+    const { appointmentId, rating, comment } = req.body;
+
+    // Validation cơ bản dữ liệu đầu vào
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp mã ca khám (appointmentId).'
+      });
+    }
+
+    const numRating = Number(rating);
+    if (!numRating || numRating < 1 || numRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Số sao đánh giá phải từ 1 đến 5 sao.'
+      });
+    }
+
+    if (!comment || comment.trim().length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nhận xét phải có ít nhất 10 ký tự để đảm bảo chất lượng phản hồi.'
+      });
+    }
+
+    // ========== CHỐNG SPAM LỚP 1: Kiểm tra ca khám tồn tại & thuộc về bệnh nhân gửi request ==========
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy ca khám này trong hệ thống.'
+      });
+    }
+
+    if (appointment.patientId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền đánh giá ca khám của bệnh nhân khác!'
+      });
+    }
+
+    // ========== CHỐNG SPAM LỚP 2: Bắt buộc trạng thái ca khám phải là 'completed' ==========
+    if (appointment.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: `Ca khám hiện tại có trạng thái '${appointment.status}'. Chỉ những ca khám đã hoàn thành thực tế mới được phép đánh giá!`
+      });
+    }
+
+    // ========== CHỐNG SPAM LỚP 3: Chống trùng lặp (1 ca khám chỉ được đánh giá 1 lần) ==========
+    const existingReview = await Review.findOne({ appointmentId });
+    if (existingReview) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ca khám này đã được đánh giá trước đó, mỗi lượt khám chỉ được đánh giá 1 lần!'
+      });
+    }
+
+    // Lưu đánh giá mới vào collection Review
+    const newReview = await Review.create({
+      appointmentId,
+      patientId: req.user.id,
+      doctorId: appointment.doctorId,
+      rating: numRating,
+      comment: comment.trim()
+    });
+
+    // ========== THUẬT TOÁN: Tự động tính toán lại điểm trung bình cho Bác sĩ ==========
+    const doctorReviews = await Review.find({ doctorId: appointment.doctorId });
+    const reviewCount = doctorReviews.length;
+    const totalStars = doctorReviews.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = Number((totalStars / reviewCount).toFixed(1));
+
+    // Khớp đúng trường tham chiếu: Cập nhật vào DoctorProfile qua doctorProfileId hoặc userId (doctorId)
+    const profileFilter = appointment.doctorProfileId
+      ? { _id: appointment.doctorProfileId }
+      : { userId: appointment.doctorId };
+
+    await DoctorProfile.findOneAndUpdate(
+      profileFilter,
+      { averageRating, reviewCount },
+      { new: true }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Gửi đánh giá ca khám thành công!',
+      review: newReview,
+      doctorStats: {
+        doctorId: appointment.doctorId,
+        averageRating,
+        reviewCount
+      }
+    });
+  } catch (error) {
+    // Bắt thêm lỗi trùng lặp từ MongoDB Unique Index nếu có race condition
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Ca khám này đã được đánh giá trước đó (Xung đột dữ liệu)!'
+      });
+    }
+    next(error);
+  }
+};
+
+// 9. Lấy danh sách tất cả đánh giá công khai của phòng khám
+// @route   GET /api/discussions/reviews
+// @access  Public
+exports.getReviews = async (req, res, next) => {
+  try {
+    const { doctorId, rating } = req.query;
+
+    const query = {};
+    if (doctorId) query.doctorId = doctorId;
+    if (rating && rating !== 'ALL') query.rating = Number(rating);
+
+    const reviews = await Review.find(query)
+      .populate('patientId', 'fullName avatar')
+      .populate('doctorId', 'fullName avatar')
+      .populate({
+        path: 'appointmentId',
+        select: 'date timeSlot doctorProfileId',
+        populate: {
+          path: 'doctorProfileId',
+          select: 'degree hospital specialtyId',
+          populate: { path: 'specialtyId', select: 'name' }
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    const formattedReviews = reviews.map((r) => ({
+      id: r._id,
+      appointmentId: r.appointmentId?._id || r.appointmentId,
+      patientName: r.patientId?.fullName || 'Bệnh nhân MedCare',
+      patientAvatar: r.patientId?.avatar,
+      doctorId: r.doctorId?._id || r.doctorId,
+      doctorName: r.doctorId?.fullName || 'Bác sĩ MedCare',
+      specialty: r.appointmentId?.doctorProfileId?.specialtyId?.name || 'Đa khoa',
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt ? r.createdAt.toISOString().split('T')[0] : 'Vừa xong',
+      verified: true
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: formattedReviews.length,
+      reviews: formattedReviews
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 10. Lấy danh sách đánh giá riêng của 1 bác sĩ cụ thể
+// @route   GET /api/discussions/reviews/doctor/:doctorId
+// @access  Public
+exports.getDoctorReviewsById = async (req, res, next) => {
+  try {
+    const { doctorId } = req.params;
+
+    const reviews = await Review.find({ doctorId })
+      .populate('patientId', 'fullName avatar')
+      .sort({ createdAt: -1 });
+
+    const count = reviews.length;
+    const totalStars = reviews.reduce((sum, r) => sum + r.rating, 0);
+    const averageRating = count > 0 ? Number((totalStars / count).toFixed(1)) : 5.0;
+
+    res.status(200).json({
+      success: true,
+      doctorId,
+      averageRating,
+      reviewCount: count,
+      reviews
     });
   } catch (error) {
     next(error);

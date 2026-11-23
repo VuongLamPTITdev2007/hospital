@@ -7,28 +7,33 @@ const {
   createDiscussion,
   deleteDiscussion,
   addComment,
-  toggleLike
+  toggleLike,
+  getMyAppointments,
+  createReview,
+  getReviews,
+  getDoctorReviewsById
 } = require('../controllers/communityController');
 
-/**
- * Routes: /api/discussions
- * Phân hệ TV 5: Diễn đàn Hỏi - Đáp Y tế & Đánh giá Bác sĩ
- */
+// Lịch sử ca khám & Đánh giá bác sĩ (đặt trước /:id)
+router.get('/my-appointments', verifyToken, getMyAppointments);
 
-// 1. Lấy danh sách câu hỏi cộng đồng & Đăng câu hỏi mới
+router.route('/reviews')
+  .get(getReviews)
+  .post(verifyToken, createReview);
+
+router.get('/reviews/doctor/:doctorId', getDoctorReviewsById);
+
+// Diễn đàn Hỏi - Đáp
 router.route('/')
   .get(getDiscussions)
   .post(verifyToken, createDiscussion);
 
-// 2. Lấy chi tiết câu hỏi theo ID & Xóa câu hỏi (kiểm tra quyền)
+// Tương tác & Chi tiết câu hỏi
+router.post('/:id/comments', verifyToken, addComment);
+router.patch('/:id/like', verifyToken, toggleLike);
+
 router.route('/:id')
   .get(getDiscussionById)
   .delete(verifyToken, deleteDiscussion);
-
-// 3. Bình luận / Trả lời câu hỏi (Tự động nhận diện nếu người gửi là Bác sĩ)
-router.post('/:id/comments', verifyToken, addComment);
-
-// 4. Thích / Bỏ thích câu hỏi (Toggle Like)
-router.patch('/:id/like', verifyToken, toggleLike);
 
 module.exports = router;
