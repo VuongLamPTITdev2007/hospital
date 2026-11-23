@@ -6,6 +6,7 @@
     "install:all": "cd server && npm install && cd ../client && npm install",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
+    "test:booking": "cd server && npm run test:booking",
     "start": "node server/server.js"
   },
   "keywords": ["react", "express", "mongodb", "medcare", "vibecoding"]
