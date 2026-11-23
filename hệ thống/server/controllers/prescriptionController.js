@@ -178,3 +178,78 @@ exports.getPrescriptionById = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getPatients = async (req, res, next) => {
+  try {
+    const patients = await User.find({ role: 'patient' })
+      .select('fullName email phone')
+      .sort({ fullName: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: patients.length,
+      data: patients
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.dispensePrescription = async (req, res, next) => {
+  try {
+    const prescription = await Prescription.findById(req.params.id);
+
+    if (!prescription) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy đơn thuốc!'
+      });
+    }
+
+    if (prescription.isDispensed) {
+      return res.status(409).json({
+        success: false,
+        message: 'Đơn thuốc này đã được xuất kho trước đó!'
+      });
+    }
+
+    for (const item of prescription.items) {
+      const med = await Medicine.findById(item.medicineId);
+      if (!med) {
+        return res.status(404).json({
+          success: false,
+          message: `Không tìm thấy thuốc "${item.medicineName}" trong kho!`
+        });
+      }
+
+      if (med.stockQuantity < item.quantity) {
+        return res.status(409).json({
+          success: false,
+          message: `Thuốc "${med.name}" không đủ tồn kho để xuất (còn ${med.stockQuantity} ${med.unit}, cần ${item.quantity})!`
+        });
+      }
+    }
+
+    for (const item of prescription.items) {
+      await Medicine.findByIdAndUpdate(item.medicineId, {
+        $inc: { stockQuantity: -item.quantity }
+      });
+    }
+
+    prescription.isDispensed = true;
+    prescription.dispensedAt = new Date();
+    await prescription.save();
+
+    const populated = await Prescription.findById(prescription._id)
+      .populate('patientId', 'fullName email phone')
+      .populate('doctorId', 'fullName email');
+
+    res.status(200).json({
+      success: true,
+      message: 'Duyệt xuất kho và trừ tồn kho thành công!',
+      data: populated
+    });
+  } catch (error) {
+    next(error);
+  }
+};
