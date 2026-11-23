@@ -3,22 +3,66 @@ import { Link } from 'react-router-dom';
 import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
-import Loader from '../../components/common/Loader';
+import { createMedicine, updateMedicine, deleteMedicine } from './pharmacyApi';
+import MedicineTable from './components/MedicineTable';
+import MedicineFormModal from './components/MedicineFormModal';
 
 const PharmacyInventoryPage = () => {
   const { user, isAuthenticated } = useAuth();
   const role = user?.role || '';
 
+  const canManageInventory = role === 'pharmacist' || role === 'admin';
   const canPrescribe = role === 'doctor' || role === 'admin';
+
   const [activeTab, setActiveTab] = useState('inventory');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMedicine, setEditingMedicine] = useState(null);
+  const [submittingMedicine, setSubmittingMedicine] = useState(false);
 
   const {
     data: medicinesRes,
     loading: medicinesLoading,
-    error: medicinesError
+    error: medicinesError,
+    refetch: refetchMedicines
   } = useFetch('/medicines');
 
   const medicines = medicinesRes?.data || [];
+
+  const handleOpenAdd = () => {
+    setEditingMedicine(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (medicine) => {
+    setEditingMedicine(medicine);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveMedicine = async (payload) => {
+    setSubmittingMedicine(true);
+    try {
+      if (editingMedicine) {
+        await updateMedicine(editingMedicine._id, payload);
+      } else {
+        await createMedicine(payload);
+      }
+      await refetchMedicines();
+    } finally {
+      setSubmittingMedicine(false);
+    }
+  };
+
+  const handleDeleteMedicine = async (medicine) => {
+    const confirmed = window.confirm(`Bạn có chắc muốn xóa thuốc "${medicine.name}" khỏi kho?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteMedicine(medicine._id);
+      await refetchMedicines();
+    } catch (err) {
+      window.alert(err.message || 'Không thể xóa thuốc!');
+    }
+  };
 
   const tabs = [
     { key: 'inventory', label: 'Kho thuốc phòng khám', icon: Package, visible: true },
@@ -73,42 +117,16 @@ const PharmacyInventoryPage = () => {
       </div>
 
       {activeTab === 'inventory' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-          {medicinesLoading ? (
-            <Loader text="Đang tải danh sách thuốc trong kho..." />
-          ) : medicinesError ? (
-            <p className="text-sm text-red-500 text-center py-6">{medicinesError}</p>
-          ) : medicines.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
-              Hiện chưa có thuốc nào trong kho.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {medicines.map((med) => (
-                <div
-                  key={med._id}
-                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">{med.name}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {med.price.toLocaleString('vi-VN')} đ / {med.unit}
-                    </p>
-                  </div>
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      med.stockQuantity <= med.minStockAlert
-                        ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                    }`}
-                  >
-                    Tồn: {med.stockQuantity}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <MedicineTable
+          medicines={medicines}
+          loading={medicinesLoading}
+          error={medicinesError}
+          onRetry={refetchMedicines}
+          canManage={canManageInventory}
+          onAdd={handleOpenAdd}
+          onEdit={handleOpenEdit}
+          onDelete={handleDeleteMedicine}
+        />
       )}
 
       {activeTab === 'prescribe' && canPrescribe && (
@@ -122,6 +140,14 @@ const PharmacyInventoryPage = () => {
           Chưa có đơn thuốc nào.
         </div>
       )}
+
+      <MedicineFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialData={editingMedicine}
+        onSubmit={handleSaveMedicine}
+        submitting={submittingMedicine}
+      />
     </div>
   );
 };
