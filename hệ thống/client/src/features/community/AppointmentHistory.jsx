@@ -10,7 +10,8 @@ import {
   Stethoscope, 
   Filter, 
   Check,
-  UserCheck
+  UserCheck,
+  Activity
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 
@@ -43,12 +44,13 @@ const formatDateVN = (rawDate) => {
 const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Thống kê nhanh số lượng theo trạng thái
+  // Thống kê nhanh số lượng theo trạng thái (bao gồm ca đang diễn ra khám)
   const counts = useMemo(() => {
     return {
       all: appointments.length,
       completed: appointments.filter((a) => a.status === 'completed').length,
-      confirmed: appointments.filter((a) => a.status === 'confirmed').length,
+      inProgress: appointments.filter((a) => a.status === 'in_progress').length,
+      confirmed: appointments.filter((a) => a.status === 'confirmed' || a.status === 'waiting' || a.status === 'holding').length,
       cancelled: appointments.filter((a) => a.status === 'cancelled').length
     };
   }, [appointments]);
@@ -56,10 +58,13 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
   // Lọc danh sách ca khám theo trạng thái
   const filteredAppointments = useMemo(() => {
     if (statusFilter === 'ALL') return appointments;
+    if (statusFilter === 'confirmed') {
+      return appointments.filter((a) => a.status === 'confirmed' || a.status === 'waiting' || a.status === 'holding');
+    }
     return appointments.filter((a) => a.status === statusFilter);
   }, [appointments, statusFilter]);
 
-  // Cấu hình hiển thị theo từng trạng thái
+  // Cấu hình hiển thị theo từng trạng thái (đầy đủ enum: completed, in_progress, confirmed, cancelled)
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'completed':
@@ -69,11 +74,19 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
             Đã hoàn thành
           </span>
         );
+      case 'in_progress':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            <Activity className="w-3.5 h-3.5 mr-1 text-amber-600 dark:text-amber-400 animate-pulse" />
+            Đang khám
+          </span>
+        );
       case 'confirmed':
+      case 'waiting':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
             <Clock className="w-3.5 h-3.5 mr-1 text-sky-600 dark:text-sky-400" />
-            Đã đặt lịch (Sắp tới)
+            Đã đặt lịch
           </span>
         );
       case 'cancelled':
@@ -136,6 +149,18 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
           }`}
         >
           Đã hoàn thành ({counts.completed})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('in_progress')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
+            statusFilter === 'in_progress'
+              ? 'bg-amber-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          Đang khám ({counts.inProgress})
         </button>
 
         <button
@@ -245,7 +270,11 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                           Đánh giá bác sĩ
                         </Button>
                       )
-                    ) : app.status === 'confirmed' ? (
+                    ) : app.status === 'in_progress' ? (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400 italic">
+                        * Bác sĩ đang khám, đánh giá sẽ mở sau khi hoàn tất
+                      </span>
+                    ) : (app.status === 'confirmed' || app.status === 'waiting' || app.status === 'holding') ? (
                       <span className="text-[11px] text-sky-600 dark:text-sky-400 italic">
                         * Đánh giá sẽ mở sau khi hoàn tất buổi khám
                       </span>
