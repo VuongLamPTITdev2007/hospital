@@ -37,7 +37,8 @@ app.use('/api/doctors', require('./routes/doctorRoutes'));         // TV 1
 app.use('/api/appointments', require('./routes/appointmentRoutes')); // Phân hệ TV 2: Booking Engine & Giữ chỗ 5p
 
 app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3
-// app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4
+app.use('/api/medicines', require('./routes/medicineRoutes'));
+app.use('/api/prescriptions', require('./routes/prescriptionRoutes'));
 // app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5
 // app.use('/api/admin', require('./routes/adminRoutes'));           // TV 6
 
