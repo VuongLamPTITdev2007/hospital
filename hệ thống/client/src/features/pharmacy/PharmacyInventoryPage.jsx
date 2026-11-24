@@ -7,12 +7,16 @@ import {
   createMedicine,
   updateMedicine,
   deleteMedicine,
+  fetchPrescriptions,
   fetchPatients,
-  createPrescription
+  createPrescription,
+  dispensePrescription
 } from './pharmacyApi';
 import MedicineTable from './components/MedicineTable';
 import MedicineFormModal from './components/MedicineFormModal';
 import PrescriptionBuilder from './components/PrescriptionBuilder';
+import PrescriptionList from './components/PrescriptionList';
+import PrintablePrescription from './components/PrintablePrescription';
 
 const PharmacyInventoryPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -20,12 +24,18 @@ const PharmacyInventoryPage = () => {
 
   const canManageInventory = role === 'pharmacist' || role === 'admin';
   const canPrescribe = role === 'doctor' || role === 'admin';
+  const canDispense = role === 'pharmacist' || role === 'admin';
 
   const [activeTab, setActiveTab] = useState('inventory');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [submittingMedicine, setSubmittingMedicine] = useState(false);
   const [patients, setPatients] = useState([]);
+
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
+  const [prescriptionsError, setPrescriptionsError] = useState('');
+  const [printingPrescription, setPrintingPrescription] = useState(null);
 
   const {
     data: medicinesRes,
@@ -35,6 +45,26 @@ const PharmacyInventoryPage = () => {
   } = useFetch('/medicines');
 
   const medicines = medicinesRes?.data || [];
+
+  const loadPrescriptions = async () => {
+    if (!isAuthenticated) return;
+    setPrescriptionsLoading(true);
+    setPrescriptionsError('');
+    try {
+      const res = await fetchPrescriptions();
+      setPrescriptions(res.data || []);
+    } catch (err) {
+      setPrescriptionsError(err.message || 'Không thể tải danh sách đơn thuốc!');
+    } finally {
+      setPrescriptionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadPrescriptions();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !canPrescribe) return;
@@ -89,6 +119,13 @@ const PharmacyInventoryPage = () => {
 
   const handleCreatePrescription = async (payload) => {
     await createPrescription(payload);
+    await loadPrescriptions();
+  };
+
+  const handleDispensePrescription = async (id) => {
+    await dispensePrescription(id);
+    await loadPrescriptions();
+    await refetchMedicines();
   };
 
   const tabs = [
@@ -99,7 +136,7 @@ const PharmacyInventoryPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-xs font-semibold mb-2">
             Quản lý Dược phẩm
@@ -122,7 +159,7 @@ const PharmacyInventoryPage = () => {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 print:hidden">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -143,32 +180,40 @@ const PharmacyInventoryPage = () => {
         })}
       </div>
 
-      {activeTab === 'inventory' && (
-        <MedicineTable
-          medicines={medicines}
-          loading={medicinesLoading}
-          error={medicinesError}
-          onRetry={refetchMedicines}
-          canManage={canManageInventory}
-          onAdd={handleOpenAdd}
-          onEdit={handleOpenEdit}
-          onDelete={handleDeleteMedicine}
-        />
-      )}
+      <div className="print:hidden">
+        {activeTab === 'inventory' && (
+          <MedicineTable
+            medicines={medicines}
+            loading={medicinesLoading}
+            error={medicinesError}
+            onRetry={refetchMedicines}
+            canManage={canManageInventory}
+            onAdd={handleOpenAdd}
+            onEdit={handleOpenEdit}
+            onDelete={handleDeleteMedicine}
+          />
+        )}
 
-      {activeTab === 'prescribe' && canPrescribe && (
-        <PrescriptionBuilder
-          medicines={medicines}
-          patients={patients}
-          onCreatePrescription={handleCreatePrescription}
-        />
-      )}
+        {activeTab === 'prescribe' && canPrescribe && (
+          <PrescriptionBuilder
+            medicines={medicines}
+            patients={patients}
+            onCreatePrescription={handleCreatePrescription}
+          />
+        )}
 
-      {activeTab === 'prescriptions' && isAuthenticated && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">
-          Chưa có đơn thuốc nào.
-        </div>
-      )}
+        {activeTab === 'prescriptions' && isAuthenticated && (
+          <PrescriptionList
+            prescriptions={prescriptions}
+            loading={prescriptionsLoading}
+            error={prescriptionsError}
+            onRetry={loadPrescriptions}
+            canDispense={canDispense}
+            onDispense={handleDispensePrescription}
+            onPrint={setPrintingPrescription}
+          />
+        )}
+      </div>
 
       <MedicineFormModal
         isOpen={isModalOpen}
@@ -176,6 +221,11 @@ const PharmacyInventoryPage = () => {
         initialData={editingMedicine}
         onSubmit={handleSaveMedicine}
         submitting={submittingMedicine}
+      />
+
+      <PrintablePrescription
+        prescription={printingPrescription}
+        onClose={() => setPrintingPrescription(null)}
       />
     </div>
   );
