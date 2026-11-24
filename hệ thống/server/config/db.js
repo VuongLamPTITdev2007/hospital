@@ -9,9 +9,8 @@ const connectDB = async () => {
     });
     console.log(`[MongoDB] Kết nối CSDL thành công tới: ${conn.connection.host}`);
   } catch (error) {
-    console.warn(`[MongoDB] Cảnh báo: Chưa kết nối được MongoDB (${error.message}).`);
-    console.warn(`[MongoDB] Máy chủ Express vẫn tiếp tục chạy ổn định với dữ liệu Bác sĩ Hà Nội.`);
-    // Tuyệt đối không gọi process.exit(1) để giữ server luôn hoạt động
+    console.error(`[MongoDB] Connection error: ${error.message}`);
+    console.warn('[MongoDB] Không thể lưu dữ liệu khi chưa kết nối cơ sở dữ liệu.');
   }
 };
 
