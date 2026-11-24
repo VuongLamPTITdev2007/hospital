@@ -37,8 +37,8 @@ const PrescriptionList = ({ prescriptions, loading, error, onRetry, canDispense,
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-red-200 p-6 text-center space-y-3">
-        <p className="text-sm text-red-600">{error}</p>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900 p-6 text-center space-y-3">
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>Thử lại</Button>
       </div>
     );
@@ -73,32 +73,32 @@ const PrescriptionList = ({ prescriptions, loading, error, onRetry, canDispense,
       </div>
 
       {errorMsg && (
-        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-300">
           {errorMsg}
         </div>
       )}
 
       {list.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center text-sm text-slate-500">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
           Chưa có đơn thuốc nào.
         </div>
       ) : (
         list.map((item) => (
           <div key={item._id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
               <div>
                 <p className="font-bold text-slate-800 dark:text-slate-100">
                   Bệnh nhân: {item.patientId?.fullName || 'Chưa rõ'}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Bác sĩ: {item.doctorId?.fullName || 'Chưa rõ'} • {new Date(item.createdAt).toLocaleString('vi-VN')}
                 </p>
               </div>
-              <div className="text-right">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${item.isDispensed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              <div className="sm:text-right">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${item.isDispensed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
                   {item.isDispensed ? <><Check className="w-3.5 h-3.5 mr-1" /> Đã xuất kho</> : <><Clock className="w-3.5 h-3.5 mr-1" /> Chờ xuất kho</>}
                 </span>
-                <p className="text-base font-bold text-emerald-600 mt-1">
+                <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                   {item.totalAmount.toLocaleString('vi-VN')} VNĐ
                 </p>
               </div>
@@ -106,15 +106,15 @@ const PrescriptionList = ({ prescriptions, loading, error, onRetry, canDispense,
 
             <div className="space-y-1.5 text-sm">
               {item.items.map((med, i) => (
-                <div key={i} className="flex justify-between text-slate-700 dark:text-slate-300">
+                <div key={i} className="flex flex-col sm:flex-row sm:justify-between gap-1 text-slate-700 dark:text-slate-300">
                   <span>{med.medicineName} ({med.quantity} {med.unit}) — {med.dosage}</span>
-                  <span className="font-semibold text-primary-600">{med.subTotal.toLocaleString('vi-VN')} đ</span>
+                  <span className="font-semibold text-primary-600 dark:text-primary-400 shrink-0">{med.subTotal.toLocaleString('vi-VN')} đ</span>
                 </div>
               ))}
             </div>
 
             {item.doctorNotes && (
-              <p className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg">
+              <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg">
                 Lời dặn: {item.doctorNotes}
               </p>
             )}

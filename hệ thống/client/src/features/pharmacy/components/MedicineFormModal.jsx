@@ -82,7 +82,7 @@ const MedicineFormModal = ({ isOpen, onClose, initialData, onSubmit, submitting 
         <Input label="Tên thuốc" name="name" value={form.name} onChange={handleChange} placeholder="Panadol Extra 500mg" required />
         <Input label="Hoạt chất chính" name="activeIngredient" value={form.activeIngredient} onChange={handleChange} placeholder="Paracetamol 500mg" />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Đơn vị tính</label>
             <select
@@ -99,7 +99,7 @@ const MedicineFormModal = ({ isOpen, onClose, initialData, onSubmit, submitting 
           <Input label="Đơn giá (VNĐ)" name="price" type="number" min="0" value={form.price} onChange={handleChange} required />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Số lượng tồn kho" name="stockQuantity" type="number" min="0" value={form.stockQuantity} onChange={handleChange} required />
           <Input label="Ngưỡng cảnh báo" name="minStockAlert" type="number" min="0" value={form.minStockAlert} onChange={handleChange} />
         </div>

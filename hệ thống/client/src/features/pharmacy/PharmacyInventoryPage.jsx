@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,13 @@ import MedicineFormModal from './components/MedicineFormModal';
 import PrescriptionBuilder from './components/PrescriptionBuilder';
 import PrescriptionList from './components/PrescriptionList';
 import PrintablePrescription from './components/PrintablePrescription';
+
+const ROLE_LABELS = {
+  admin: 'Quản trị viên',
+  doctor: 'Bác sĩ',
+  pharmacist: 'Dược sĩ',
+  patient: 'Bệnh nhân'
+};
 
 const PharmacyInventoryPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -128,10 +135,15 @@ const PharmacyInventoryPage = () => {
     await refetchMedicines();
   };
 
+  const pendingCount = useMemo(
+    () => prescriptions.filter((p) => !p.isDispensed).length,
+    [prescriptions]
+  );
+
   const tabs = [
     { key: 'inventory', label: 'Kho thuốc phòng khám', icon: Package, visible: true },
     { key: 'prescribe', label: 'Kê đơn thuốc', icon: Pill, visible: canPrescribe },
-    { key: 'prescriptions', label: 'Đơn thuốc & Xuất kho', icon: ClipboardList, visible: isAuthenticated }
+    { key: 'prescriptions', label: 'Đơn thuốc & Xuất kho', icon: ClipboardList, visible: isAuthenticated, badge: pendingCount }
   ].filter((tab) => tab.visible);
 
   return (
@@ -149,13 +161,17 @@ const PharmacyInventoryPage = () => {
           </p>
         </div>
 
-        {!isAuthenticated && (
+        {!isAuthenticated ? (
           <Link
             to="/login"
             className="inline-flex items-center px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors shrink-0"
           >
             <LogIn className="w-4 h-4 mr-2" /> Đăng nhập để kê đơn / xuất kho
           </Link>
+        ) : (
+          <div className="text-xs px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 shrink-0">
+            Đang đăng nhập: <span className="font-semibold">{user?.fullName}</span> ({ROLE_LABELS[role] || role})
+          </div>
         )}
       </div>
 
@@ -175,6 +191,11 @@ const PharmacyInventoryPage = () => {
             >
               <Icon className="w-4 h-4 mr-2" />
               {tab.label}
+              {tab.badge > 0 && (
+                <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
