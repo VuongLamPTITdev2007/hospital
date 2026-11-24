@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
-import { createMedicine, updateMedicine, deleteMedicine } from './pharmacyApi';
+import {
+  createMedicine,
+  updateMedicine,
+  deleteMedicine,
+  fetchPatients,
+  createPrescription
+} from './pharmacyApi';
 import MedicineTable from './components/MedicineTable';
 import MedicineFormModal from './components/MedicineFormModal';
+import PrescriptionBuilder from './components/PrescriptionBuilder';
 
 const PharmacyInventoryPage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -18,6 +25,7 @@ const PharmacyInventoryPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [submittingMedicine, setSubmittingMedicine] = useState(false);
+  const [patients, setPatients] = useState([]);
 
   const {
     data: medicinesRes,
@@ -27,6 +35,21 @@ const PharmacyInventoryPage = () => {
   } = useFetch('/medicines');
 
   const medicines = medicinesRes?.data || [];
+
+  useEffect(() => {
+    if (!isAuthenticated || !canPrescribe) return;
+
+    const loadPatients = async () => {
+      try {
+        const res = await fetchPatients();
+        setPatients(res.data || []);
+      } catch {
+        setPatients([]);
+      }
+    };
+
+    loadPatients();
+  }, [isAuthenticated, canPrescribe]);
 
   const handleOpenAdd = () => {
     setEditingMedicine(null);
@@ -62,6 +85,10 @@ const PharmacyInventoryPage = () => {
     } catch (err) {
       window.alert(err.message || 'Không thể xóa thuốc!');
     }
+  };
+
+  const handleCreatePrescription = async (payload) => {
+    await createPrescription(payload);
   };
 
   const tabs = [
@@ -130,9 +157,11 @@ const PharmacyInventoryPage = () => {
       )}
 
       {activeTab === 'prescribe' && canPrescribe && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">
-          Chưa có mẫu kê đơn thuốc.
-        </div>
+        <PrescriptionBuilder
+          medicines={medicines}
+          patients={patients}
+          onCreatePrescription={handleCreatePrescription}
+        />
       )}
 
       {activeTab === 'prescriptions' && isAuthenticated && (
