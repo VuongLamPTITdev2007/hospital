@@ -2,12 +2,9 @@ const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
 const User = require('../models/User');
 const Specialty = require('../models/Specialty');
+const { ACTIVE_STATUSES, INDEX_NAME, normalizeSlot, validSlot, validDate } = require('../services/slotPolicy');
 
-// Chuẩn hóa chuỗi timeSlot để so sánh nhất quán (bỏ khoảng trắng thừa)
-const normalizeSlot = (slot) => {
-  if (!slot) return '';
-  return slot.replace(/\s+/g, '').replace('-', ' - ');
-};
+const isSafeIndex = (index) => index.name === INDEX_NAME && index.unique === true && JSON.stringify(index.key) === JSON.stringify({ doctorId: 1, date: 1, timeSlot: 1 }) && JSON.stringify(index.partialFilterExpression?.status?.$in) === JSON.stringify(ACTIVE_STATUSES);
 
 /**
  * @desc Lấy danh sách bác sĩ phục vụ chọn bác sĩ trong quy trình đặt lịch
@@ -61,7 +58,7 @@ exports.getAvailableSlots = async (req, res, next) => {
   try {
     const { doctorId, date } = req.query;
 
-    if (!doctorId || !date) {
+    if (!doctorId || !validDate(date)) {
       return res.status(400).json({
         success: false,
         message: 'Vui lòng cung cấp mã bác sĩ (doctorId) và ngày khám (date YYYY-MM-DD)!'
@@ -109,6 +106,8 @@ exports.getAvailableSlots = async (req, res, next) => {
 
     // Tự động giải phóng (cancel) các lịch giữ chỗ đã quá 5 phút
     const now = new Date();
+    const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const currentTime = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false });
     await Appointment.updateMany(
       {
         doctorId: targetDoctorId,
@@ -129,6 +128,7 @@ exports.getAvailableSlots = async (req, res, next) => {
     // Map các slot và gắn cờ trạng thái
     const mappedSlots = configuredSlots.map((slotText) => {
       const standardSlot = normalizeSlot(slotText);
+      const isPast = date < today || (date === today && standardSlot.slice(0, 5) <= currentTime);
       const matchedAppt = activeAppointments.find(
         (a) => normalizeSlot(a.timeSlot) === standardSlot
       );
@@ -138,6 +138,7 @@ exports.getAvailableSlots = async (req, res, next) => {
           time: slotText,
           status: 'available',
           isBooked: false,
+          isPast,
           appointmentId: null
         };
       }
@@ -150,6 +151,7 @@ exports.getAvailableSlots = async (req, res, next) => {
           time: slotText,
           status: 'available',
           isBooked: false,
+          isPast,
           appointmentId: null
         };
       }
@@ -158,9 +160,7 @@ exports.getAvailableSlots = async (req, res, next) => {
         time: slotText,
         status: matchedAppt.status, // 'holding' | 'confirmed' | ...
         isBooked: true,
-        appointmentId: matchedAppt._id,
-        holdingExpiresAt: matchedAppt.holdingExpiresAt || null,
-        patientName: matchedAppt.patientName ? matchedAppt.patientName.slice(0, 3) + '***' : undefined
+        isPast
       };
     });
 
@@ -201,6 +201,10 @@ exports.holdSlot = async (req, res, next) => {
 
     const standardSlot = normalizeSlot(timeSlot);
 
+    if (!validDate(date) || !validSlot(standardSlot)) return res.status(400).json({ success: false, message: 'Ngày khám hoặc khung giờ không hợp lệ.' });
+    const indexes = await Appointment.collection.indexes();
+    if (!indexes.some(isSafeIndex)) return res.status(503).json({ success: false, message: 'Chức năng đặt lịch đang bảo trì để bảo đảm không trùng ca. Vui lòng thử lại sau.' });
+
     // Kiểm tra thông tin bác sĩ
     const doctorProfile = await DoctorProfile.findOne({
       $or: [{ userId: doctorId }, { _id: doctorId }]
@@ -214,6 +218,15 @@ exports.holdSlot = async (req, res, next) => {
     }
 
     const actualDoctorUserId = doctorProfile.userId || doctorId;
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const currentTime = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false });
+    if (date < today || (date === today && standardSlot.slice(0, 5) <= currentTime)) return res.status(400).json({ success: false, message: 'Không thể đặt lịch trong quá khứ.' });
+    const day = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+    const schedule = doctorProfile.workingHours.find((item) => item.dayOfWeek === day);
+    const defaults = ['08:00-08:30', '08:30-09:00', '09:00-09:30', '09:30-10:00', '10:00-10:30', '10:30-11:00', '14:00-14:30', '14:30-15:00', '15:00-15:30', '15:30-16:00'];
+    const allowedSlots = schedule?.slots?.length ? schedule.slots.map(normalizeSlot) : defaults;
+    if (!allowedSlots.includes(standardSlot)) return res.status(400).json({ success: false, message: 'Khung giờ không thuộc lịch làm việc của bác sĩ.' });
 
     // 1. Dọn dẹp các ca holding cũ đã quá hạn cho khung giờ này
     const now = new Date();
@@ -368,25 +381,27 @@ exports.confirmBooking = async (req, res, next) => {
     // Kiểm tra xem đã hết thời gian 5 phút giữ chỗ chưa
     const now = new Date();
     if (appointment.status === 'holding' && new Date(appointment.holdingExpiresAt) < now) {
-      appointment.status = 'cancelled';
-      await appointment.save();
+      await Appointment.updateOne({ _id: id, status: 'holding', holdingExpiresAt: { $lte: now } }, { $set: { status: 'cancelled' } });
       return res.status(400).json({
         success: false,
         message: 'Đã hết thời gian 5 phút giữ chỗ! Khung giờ đã được giải phóng, vui lòng thực hiện lại.'
       });
     }
 
-    // Cập nhật trạng thái xác nhận thành công
-    appointment.status = 'confirmed';
-    appointment.paymentStatus = 'paid';
-    await appointment.save();
+    // Chỉ xác nhận phiên giữ chỗ còn hạn bằng một thao tác nguyên tử.
+    const updated = await Appointment.findOneAndUpdate(
+      { _id: id, patientId: appointment.patientId, status: 'holding', holdingExpiresAt: { $gt: now } },
+      { $set: { status: 'confirmed', paymentStatus: 'paid' } },
+      { new: true }
+    ).populate('doctorId', 'fullName phone avatar').populate('doctorProfileId');
+    if (!updated) return res.status(409).json({ success: false, message: 'Lịch đã hết hạn hoặc không còn ở trạng thái giữ chỗ.' });
 
     res.status(200).json({
       success: true,
       message: 'Xác nhận đặt lịch và cọc thành công! Vui lòng đến trước giờ khám 15 phút.',
       data: {
-        appointment,
-        bookingCode: appointment._id.toString().slice(-6).toUpperCase(),
+        appointment: updated,
+        bookingCode: updated._id.toString().slice(-6).toUpperCase(),
         transactionCode: transactionCode || `TXN-${Date.now()}`,
         paymentMethod: paymentMethod || 'VietQR'
       }
@@ -422,8 +437,9 @@ exports.cancelAppointment = async (req, res, next) => {
       });
     }
 
-    appointment.status = 'cancelled';
-    await appointment.save();
+    if (!['holding', 'confirmed'].includes(appointment.status)) return res.status(409).json({ success: false, message: 'Không thể hủy lịch ở trạng thái này.' });
+    const cancelled = await Appointment.findOneAndUpdate({ _id: id, status: { $in: ['holding', 'confirmed'] } }, { $set: { status: 'cancelled' } }, { new: true });
+    if (!cancelled) return res.status(409).json({ success: false, message: 'Trạng thái lịch đã thay đổi, vui lòng tải lại.' });
 
     res.status(200).json({
       success: true,
@@ -492,6 +508,10 @@ exports.getAppointmentById = async (req, res, next) => {
         success: false,
         message: 'Không tìm thấy thông tin ca hẹn khám!'
       });
+    }
+
+    if (req.user.role !== 'admin' && String(appointment.patientId) !== req.user.id && String(appointment.doctorId?._id || appointment.doctorId) !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lịch hẹn này.' });
     }
 
     res.status(200).json({

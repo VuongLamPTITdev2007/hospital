@@ -4,7 +4,7 @@ import { createSlice } from '@reduxjs/toolkit';
 const getDefaultBookingDate = () => {
   const target = new Date();
   target.setDate(target.getDate() + 1);
-  return target.toISOString().split('T')[0];
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
 };
 
 const initialState = {

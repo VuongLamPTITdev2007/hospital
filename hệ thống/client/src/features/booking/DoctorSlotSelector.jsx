@@ -24,9 +24,15 @@ const DoctorSlotSelector = () => {
         const res = await axiosClient.get('/appointments/doctors');
         if (isMounted && res.success && res.data.length > 0) {
           setDoctors(res.data);
-          // Nếu chưa chọn bác sĩ, mặc định chọn bác sĩ đầu tiên
-          if (!selectedDoctor) {
-            dispatch(selectDoctor(res.data[0]));
+          // Trang chi tiết trả profile; chuyển về cùng dạng dữ liệu Booking.
+          const selectedId = selectedDoctor?.doctorId || selectedDoctor?.userId?._id || selectedDoctor?.userId || selectedDoctor?.id;
+          const profileId = selectedDoctor?._id;
+          const matched = res.data.find((doctor) => String(doctor.doctorId) === String(selectedId) || String(doctor.doctorProfileId) === String(profileId));
+          if (selectedDoctor && !matched) {
+            dispatch(selectDoctor(null));
+            setErrorMsg('Không tìm thấy lịch đặt cho bác sĩ đã chọn. Vui lòng chọn bác sĩ từ danh sách.');
+          } else {
+            dispatch(selectDoctor(matched || res.data[0]));
           }
         }
       } catch (err) {
@@ -44,7 +50,7 @@ const DoctorSlotSelector = () => {
 
   // 2. Tải khung giờ slot theo bác sĩ và ngày được chọn
   const fetchSlots = async () => {
-    if (!selectedDoctor || !selectedDate) return;
+    if (!selectedDoctor || !selectedDate || !(selectedDoctor.doctorId || selectedDoctor.id)) return;
     try {
       setLoadingSlots(true);
       setErrorMsg('');
@@ -76,10 +82,11 @@ const DoctorSlotSelector = () => {
   };
 
   // Giới hạn ngày chọn: từ hôm nay đến 30 ngày sau
-  const todayStr = new Date().toISOString().split('T')[0];
+  const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const todayStr = localDate(new Date());
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 30);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  const maxDateStr = localDate(maxDate);
 
   return (
     <div className="space-y-6">
@@ -223,7 +230,7 @@ const DoctorSlotSelector = () => {
             {slotsData.slots.map((slot, index) => {
               const isSelected = selectedSlot === slot.time;
               const isHolding = slot.status === 'holding';
-              const isBooked = slot.isBooked;
+              const isBooked = slot.isBooked || slot.isPast;
 
               return (
                 <button
@@ -243,7 +250,7 @@ const DoctorSlotSelector = () => {
                 >
                   <span className="font-mono">{slot.time}</span>
                   <span className="text-[11px] font-normal mt-1">
-                    {isHolding ? 'Đang giữ 5p' : isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}
+                    {slot.isPast ? 'Đã qua' : isHolding ? 'Đang giữ 5p' : isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}
                   </span>
                 </button>
               );

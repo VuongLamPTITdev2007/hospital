@@ -251,6 +251,7 @@ exports.getDoctors = async (req, res, next) => {
         } else {
           const foundSpec = await Specialty.findOne({ name: new RegExp(specialty, 'i') });
           if (foundSpec) query.specialtyId = foundSpec._id;
+          else return res.status(200).json({ success: true, count: 0, total: 0, totalPages: 1, currentPage: 1, data: [] });
         }
       }
 
@@ -290,7 +291,7 @@ exports.getDoctors = async (req, res, next) => {
       const skip = (pageNum - 1) * limitNum;
 
       const total = await DoctorProfile.countDocuments(query);
-      if (total > 0) {
+      {
         const doctors = await DoctorProfile.find(query)
           .populate('userId', 'fullName email avatar phone')
           .populate('specialtyId', 'name icon description')
@@ -309,13 +310,9 @@ exports.getDoctors = async (req, res, next) => {
       }
     }
 
-    // Nếu MongoDB offline hoặc chưa nạp dữ liệu: Phục vụ dữ liệu Hà Nội in-memory
-    const result = getMockFilteredDoctors(req.query);
-    return res.status(200).json(result);
+    return res.status(503).json({ success: false, message: 'Chưa kết nối cơ sở dữ liệu.' });
   } catch (error) {
-    // Luôn trả về danh sách an toàn thay vì sập lỗi 500
-    const result = getMockFilteredDoctors(req.query);
-    return res.status(200).json(result);
+    next(error);
   }
 };
 
@@ -325,6 +322,7 @@ exports.getDoctors = async (req, res, next) => {
 exports.getDoctorById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ success: false, message: 'Mã bác sĩ không hợp lệ.' });
 
     if (mongoose.connection.readyState === 1) {
       let doctor = await DoctorProfile.findById(id)
@@ -351,37 +349,10 @@ exports.getDoctorById = async (req, res, next) => {
       }
     }
 
-    // Fallback in-memory
-    const foundDoctor = HANOI_DOCTORS_DATA.find(d => d._id === id) || HANOI_DOCTORS_DATA[0];
-    const mockReviews = [
-      {
-        _id: 'rev_1',
-        patientId: { fullName: 'Trần Văn Bình' },
-        rating: 5,
-        comment: 'Bác sĩ khám bệnh rất kỹ lưỡng, giải thích nguyên nhân rõ ràng và kê đơn hiệu quả.',
-        createdAt: new Date().toISOString()
-      },
-      {
-        _id: 'rev_2',
-        patientId: { fullName: 'Lê Thị Thu Trang' },
-        rating: 5,
-        comment: 'Hệ thống đặt lịch giúp không phải chờ đợi lâu. Bác sĩ chuyên môn rất cao!',
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    return res.status(200).json({
-      success: true,
-      data: foundDoctor,
-      reviews: mockReviews
-    });
+    if (mongoose.connection.readyState !== 1) return res.status(503).json({ success: false, message: 'Chưa kết nối cơ sở dữ liệu.' });
+    return res.status(404).json({ success: false, message: 'Không tìm thấy bác sĩ.' });
   } catch (error) {
-    const fallback = HANOI_DOCTORS_DATA[0];
-    return res.status(200).json({
-      success: true,
-      data: fallback,
-      reviews: []
-    });
+    next(error);
   }
 };
 

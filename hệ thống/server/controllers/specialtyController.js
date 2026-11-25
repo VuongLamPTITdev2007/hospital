@@ -19,7 +19,7 @@ exports.getSpecialties = async (req, res, next) => {
   try {
     if (mongoose.connection.readyState === 1) {
       const specialties = await Specialty.find({ isActive: true }).sort({ name: 1 });
-      if (specialties && specialties.length > 0) {
+      {
         return res.status(200).json({
           success: true,
           count: specialties.length,
@@ -28,19 +28,9 @@ exports.getSpecialties = async (req, res, next) => {
       }
     }
 
-    // Fallback data nếu MongoDB rỗng hoặc offline
-    return res.status(200).json({
-      success: true,
-      count: FALLBACK_SPECIALTIES.length,
-      data: FALLBACK_SPECIALTIES
-    });
+    return res.status(503).json({ success: false, message: 'Chưa kết nối cơ sở dữ liệu.' });
   } catch (error) {
-    // Vẫn trả về danh mục dự phòng thay vì lỗi
-    return res.status(200).json({
-      success: true,
-      count: FALLBACK_SPECIALTIES.length,
-      data: FALLBACK_SPECIALTIES
-    });
+    next(error);
   }
 };
 
@@ -49,6 +39,7 @@ exports.getSpecialties = async (req, res, next) => {
 // @access  Public
 exports.getSpecialtyById = async (req, res, next) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Mã chuyên khoa không hợp lệ.' });
     if (mongoose.connection.readyState === 1) {
       const specialty = await Specialty.findById(req.params.id);
       if (specialty) {
@@ -56,8 +47,8 @@ exports.getSpecialtyById = async (req, res, next) => {
       }
     }
 
-    const found = FALLBACK_SPECIALTIES.find(s => s._id === req.params.id) || FALLBACK_SPECIALTIES[0];
-    return res.status(200).json({ success: true, data: found });
+    if (mongoose.connection.readyState !== 1) return res.status(503).json({ success: false, message: 'Chưa kết nối cơ sở dữ liệu.' });
+    return res.status(404).json({ success: false, message: 'Không tìm thấy chuyên khoa.' });
   } catch (error) {
     next(error);
   }
