@@ -1,190 +1,102 @@
 import React, { useState } from 'react';
-import { useCountdown } from '../../hooks/useCountdown';
-import { Calendar, Clock, CheckCircle2, AlertTriangle, QrCode } from 'lucide-react';
-import Button from '../../components/common/Button';
-import Modal from '../../components/common/Modal';
-
-const SLOTS = [
-  { time: '08:00 - 08:30', isBooked: false },
-  { time: '08:30 - 09:00', isBooked: true }, // Đã có người đặt
-  { time: '09:00 - 09:30', isBooked: false },
-  { time: '09:30 - 10:00', isBooked: false },
-  { time: '10:00 - 10:30', isBooked: false },
-  { time: '14:00 - 14:30', isBooked: true },
-  { time: '14:30 - 15:00', isBooked: false },
-  { time: '15:00 - 15:30', isBooked: false },
-];
+import { useSelector, useDispatch } from 'react-redux';
+import { resetBooking } from '../../store/slices/bookingSlice';
+import BookingStepWizard from './BookingStepWizard';
+import DoctorSlotSelector from './DoctorSlotSelector';
+import PatientInfoForm from './PatientInfoForm';
+import HoldPaymentStep from './HoldPaymentStep';
+import BookingConfirmationPass from './BookingConfirmationPass';
+import MyAppointmentsTab from './MyAppointmentsTab';
+import { CalendarCheck, History, Sparkles, Clock, ShieldCheck } from 'lucide-react';
 
 const BookingPage = () => {
-  const [selectedDate, setSelectedDate] = useState('2026-11-20');
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [isHoldingModalOpen, setIsHoldingModalOpen] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const dispatch = useDispatch();
+  const { step } = useSelector((state) => state.booking);
+  const [activeTab, setActiveTab] = useState('booking'); // 'booking' | 'history'
 
-  // Hook đếm ngược giữ slot 5 phút (300 giây)
-  const { secondsLeft, isActive, start, reset, formatTime } = useCountdown(300, () => {
-    alert('Đã hết 5 phút giữ chỗ! Khung giờ của bạn đã được giải phóng.');
-    setIsHoldingModalOpen(false);
-    setSelectedSlot(null);
-  });
-
-  const handleSelectSlot = (slot) => {
-    if (slot.isBooked) return;
-    setSelectedSlot(slot.time);
-  };
-
-  const handleStartBooking = () => {
-    if (!selectedSlot) return;
-    setIsHoldingModalOpen(true);
-    reset(300);
-    start();
-  };
-
-  const handleConfirmPayment = () => {
-    setIsSuccess(true);
-    setIsHoldingModalOpen(false);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'booking' && step === 4) {
+      dispatch(resetBooking());
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Banner */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-        <span className="inline-block px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-full text-xs font-semibold mb-2">
-          Phân hệ TV 2: Booking Engine & Chống trùng ca khám
-        </span>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          Chọn Khung Giờ & Đặt Hẹn Khám Bệnh
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Bác sĩ phụ trách: <strong className="text-primary-600">BSCKII. Nguyễn Văn An</strong> (Chuyên khoa Tim mạch)
-        </p>
-
-        {/* Date picker */}
-        <div className="mt-6 flex items-center space-x-4">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
-            <Calendar className="w-4 h-4 mr-2 text-primary-600" /> Ngày khám:
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-          />
-        </div>
-      </div>
-
-      {/* Success banner */}
-      {isSuccess && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center text-emerald-800 dark:text-emerald-300 text-sm">
-          <CheckCircle2 className="w-5 h-5 mr-3 flex-shrink-0" />
-          <span>Đặt lịch thành công! Mã hẹn của bạn: <strong>#MED-2026-9921</strong>. Vui lòng đến trước 15 phút.</span>
-        </div>
-      )}
-
-      {/* Slot Grid */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
-          <Clock className="w-5 h-5 mr-2 text-primary-600" /> Khung giờ khám khả dụng (30 phút/ca)
-        </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {SLOTS.map((slot, idx) => {
-            const isSelected = selectedSlot === slot.time;
-            return (
-              <button
-                key={idx}
-                type="button"
-                disabled={slot.isBooked}
-                onClick={() => handleSelectSlot(slot)}
-                className={`p-3 rounded-xl border text-sm font-semibold transition-all text-center flex flex-col items-center justify-center ${
-                  slot.isBooked
-                    ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed line-through'
-                    : isSelected
-                    ? 'bg-primary-600 text-white border-primary-600 shadow-md ring-2 ring-primary-300'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <span>{slot.time}</span>
-                <span className="text-[11px] font-normal mt-1">
-                  {slot.isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Action Bottom */}
-        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Banner Đặt Lịch Khám Bệnh */}
+      <div className="bg-gradient-to-r from-teal-600 via-primary-600 to-primary-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-primary-500/10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-slate-500">Khung giờ đã chọn:</p>
-            <p className="text-base font-bold text-primary-600">
-              {selectedSlot ? `${selectedSlot} ngày ${selectedDate}` : 'Chưa chọn khung giờ'}
+            <div className="flex items-center space-x-2">
+              <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                Phòng Khám Đa Khoa MedCare
+              </span>
+              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-400 text-slate-900">
+                <Sparkles className="w-3 h-3 mr-1" /> Đặt lịch trực tuyến 24/7
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black mt-2">
+              Đặt Lịch Khám & Chăm Sóc Sức Khỏe
+            </h1>
+            <p className="mt-2 text-primary-100 max-w-2xl text-xs sm:text-sm leading-relaxed">
+              Chủ động chọn bác sĩ chuyên khoa và khung giờ khám phù hợp với lịch trình của bạn. Đặt hẹn nhanh chóng, giữ chỗ tức thì và nhận phiếu khám điện tử mà không cần xếp hàng chờ đợi.
             </p>
           </div>
-          <Button
-            variant="primary"
-            size="lg"
-            disabled={!selectedSlot}
-            onClick={handleStartBooking}
-            className="w-full sm:w-auto"
-          >
-            Tiến hành giữ chỗ & Thanh toán cọc
-          </Button>
+
+          {/* Navigation Tabs */}
+          <div className="flex bg-white/15 backdrop-blur-md p-1.5 rounded-2xl self-start md:self-center">
+            <button
+              onClick={() => handleTabChange('booking')}
+              className={`flex items-center px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'booking'
+                  ? 'bg-white text-primary-700 shadow-md'
+                  : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <CalendarCheck className="w-4 h-4 mr-1.5" /> Đặt lịch mới
+            </button>
+            <button
+              onClick={() => handleTabChange('history')}
+              className={`flex items-center px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'history'
+                  ? 'bg-white text-primary-700 shadow-md'
+                  : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <History className="w-4 h-4 mr-1.5" /> Lịch hẹn của tôi
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Countdown Hold Modal */}
-      <Modal
-        isOpen={isHoldingModalOpen}
-        onClose={() => setIsHoldingModalOpen(false)}
-        title="Xác nhận giữ chỗ & Thanh toán cọc"
-      >
-        <div className="space-y-4">
-          {/* Countdown Clock */}
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between">
-            <div className="flex items-center text-amber-800 dark:text-amber-300 text-sm">
-              <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
-              <span>Thời gian giữ slot còn lại:</span>
-            </div>
-            <span className="text-lg font-mono font-bold text-red-600 dark:text-red-400 animate-pulse">
-              {formatTime()}
-            </span>
-          </div>
+      {/* Main Content Area */}
+      {activeTab === 'booking' ? (
+        <div className="space-y-6">
+          {/* Multi-step Stepper */}
+          <BookingStepWizard currentStep={step} />
 
-          <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Bác sĩ:</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">BSCKII. Nguyễn Văn An</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Thời gian:</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedSlot}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Tiền cọc giữ chỗ:</span>
-              <span className="font-bold text-primary-600">50.000 VNĐ</span>
-            </div>
-          </div>
+          {/* Step 1: Chọn Bác sĩ, Ngày & Khung giờ Slot */}
+          {step === 1 && <DoctorSlotSelector />}
 
-          {/* QR code simulation */}
-          <div className="text-center p-4 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
-            <div className="w-36 h-36 mx-auto bg-slate-200 dark:bg-slate-700 rounded-lg flex flex-col items-center justify-center text-slate-500">
-              <QrCode className="w-16 h-16 text-slate-700 dark:text-slate-300" />
-              <span className="text-[10px] mt-1">VietQR Giữ Chỗ</span>
-            </div>
-            <p className="text-xs text-slate-500 mt-2">Quét mã để chuyển khoản 50.000đ cọc (Demo)</p>
-          </div>
+          {/* Step 2: Form thông tin người khám */}
+          {step === 2 && <PatientInfoForm />}
 
-          <div className="flex justify-end space-x-3 pt-3">
-            <Button variant="outline" onClick={() => setIsHoldingModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button variant="primary" onClick={handleConfirmPayment}>
-              Xác nhận đã chuyển khoản
-            </Button>
-          </div>
+          {/* Step 3: Giữ chỗ 5 phút & Thanh toán cọc VietQR */}
+          {step === 3 && <HoldPaymentStep />}
+
+          {/* Step 4: Phiếu xác nhận đặt lịch & E-Ticket Pass */}
+          {step === 4 && (
+            <BookingConfirmationPass onGoToMyAppointments={() => setActiveTab('history')} />
+          )}
         </div>
-      </Modal>
+      ) : (
+        <MyAppointmentsTab
+          onStartBookingNew={() => {
+            setActiveTab('booking');
+            dispatch(resetBooking());
+          }}
+        />
+      )}
     </div>
   );
 };
