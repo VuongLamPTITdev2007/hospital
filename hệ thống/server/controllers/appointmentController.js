@@ -89,20 +89,7 @@ exports.getAvailableSlots = async (req, res, next) => {
     // Tìm khung giờ cấu hình trong workingHours của bác sĩ cho ngày này
     const schedule = doctorProfile.workingHours?.find((w) => w.dayOfWeek === dayOfWeek);
 
-    const defaultSlots = [
-      '08:00 - 08:30',
-      '08:30 - 09:00',
-      '09:00 - 09:30',
-      '09:30 - 10:00',
-      '10:00 - 10:30',
-      '10:30 - 11:00',
-      '14:00 - 14:30',
-      '14:30 - 15:00',
-      '15:00 - 15:30',
-      '15:30 - 16:00'
-    ];
-
-    const configuredSlots = schedule && schedule.slots?.length > 0 ? schedule.slots : defaultSlots;
+    const configuredSlots = schedule?.slots || [];
 
     // Tự động giải phóng (cancel) các lịch giữ chỗ đã quá 5 phút
     const now = new Date();
@@ -224,8 +211,7 @@ exports.holdSlot = async (req, res, next) => {
     if (date < today || (date === today && standardSlot.slice(0, 5) <= currentTime)) return res.status(400).json({ success: false, message: 'Không thể đặt lịch trong quá khứ.' });
     const day = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
     const schedule = doctorProfile.workingHours.find((item) => item.dayOfWeek === day);
-    const defaults = ['08:00-08:30', '08:30-09:00', '09:00-09:30', '09:30-10:00', '10:00-10:30', '10:30-11:00', '14:00-14:30', '14:30-15:00', '15:00-15:30', '15:30-16:00'];
-    const allowedSlots = schedule?.slots?.length ? schedule.slots.map(normalizeSlot) : defaults;
+    const allowedSlots = (schedule?.slots || []).map(normalizeSlot);
     if (!allowedSlots.includes(standardSlot)) return res.status(400).json({ success: false, message: 'Khung giờ không thuộc lịch làm việc của bác sĩ.' });
 
     // 1. Dọn dẹp các ca holding cũ đã quá hạn cho khung giờ này

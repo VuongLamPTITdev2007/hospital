@@ -13,6 +13,7 @@ import PharmacyInventoryPage from './features/pharmacy/PharmacyInventoryPage';
 import QnAPage from './features/community/QnAPage';
 import AdminDashboardPage from './features/admin/AdminDashboardPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import ChatWidget from './features/chatbot/ChatWidget';
 
 // Layout chung bao gồm Navbar và Footer
 const MainLayout = () => {
@@ -25,6 +26,7 @@ const MainLayout = () => {
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-6 text-center text-xs text-slate-500">
         <p>© 2026 MedCare Clinic Management System – Bài tập lớn Cuối kỳ Lập trình Web (Nhóm 6 thành viên).</p>
       </footer>
+      <ChatWidget />
     </div>
   );
 };
