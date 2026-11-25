@@ -1,188 +1,253 @@
-import React, { useState, useMemo } from 'react';
-import { Pill, Plus, Trash2, Printer, Check, AlertCircle } from 'lucide-react';
-import Button from '../../components/common/Button';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useFetch } from '../../hooks/useFetch';
+import {
+  createMedicine,
+  updateMedicine,
+  deleteMedicine,
+  fetchPrescriptions,
+  fetchPatients,
+  createPrescription,
+  dispensePrescription
+} from './pharmacyApi';
+import MedicineTable from './components/MedicineTable';
+import MedicineFormModal from './components/MedicineFormModal';
+import PrescriptionBuilder from './components/PrescriptionBuilder';
+import PrescriptionList from './components/PrescriptionList';
+import PrintablePrescription from './components/PrintablePrescription';
 
-const INITIAL_MEDICINES = [
-  { id: 'med1', name: 'Panadol Extra 500mg', unit: 'Vỉ', price: 18000, stock: 150 },
-  { id: 'med2', name: 'Amlodipine 5mg (Huyết áp)', unit: 'Hộp', price: 95000, stock: 45 },
-  { id: 'med3', name: 'Atorvastatin 20mg (Mỡ máu)', unit: 'Hộp', price: 140000, stock: 12 }, // Gần hết hàng
-  { id: 'med4', name: 'Berberin 50mg', unit: 'Lọ', price: 15000, stock: 200 },
-];
+const ROLE_LABELS = {
+  admin: 'Quản trị viên',
+  doctor: 'Bác sĩ',
+  pharmacist: 'Dược sĩ',
+  patient: 'Bệnh nhân'
+};
 
 const PharmacyInventoryPage = () => {
-  const [medicines] = useState(INITIAL_MEDICINES);
-  const [prescriptionItems, setPrescriptionItems] = useState([
-    { medicineId: 'med2', name: 'Amlodipine 5mg', quantity: 2, unit: 'Hộp', price: 95000, dosage: 'Sáng 1 viên sau ăn' },
-    { medicineId: 'med3', name: 'Atorvastatin 20mg', quantity: 1, unit: 'Hộp', price: 140000, dosage: 'Tối 1 viên trước ngủ' }
-  ]);
-  const [isDispensed, setIsDispensed] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+  const role = user?.role || '';
 
-  // Tính tổng tiền đơn thuốc bằng useMemo (Tiêu chí 4 & 6 của đề bài)
-  const totalAmount = useMemo(() => {
-    return prescriptionItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  }, [prescriptionItems]);
+  const canManageInventory = role === 'pharmacist' || role === 'admin';
+  const canPrescribe = role === 'doctor' || role === 'admin';
+  const canDispense = role === 'pharmacist' || role === 'admin';
 
-  const handleAddItem = () => {
-    const defaultMed = medicines[0];
-    setPrescriptionItems(prev => [
-      ...prev,
-      {
-        medicineId: defaultMed.id,
-        name: defaultMed.name,
-        quantity: 1,
-        unit: defaultMed.unit,
-        price: defaultMed.price,
-        dosage: '1 viên / lần'
+  const [activeTab, setActiveTab] = useState('inventory');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMedicine, setEditingMedicine] = useState(null);
+  const [submittingMedicine, setSubmittingMedicine] = useState(false);
+  const [patients, setPatients] = useState([]);
+
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
+  const [prescriptionsError, setPrescriptionsError] = useState('');
+  const [printingPrescription, setPrintingPrescription] = useState(null);
+
+  const {
+    data: medicinesRes,
+    loading: medicinesLoading,
+    error: medicinesError,
+    refetch: refetchMedicines
+  } = useFetch('/medicines');
+
+  const medicines = medicinesRes?.data || [];
+
+  const loadPrescriptions = async () => {
+    if (!isAuthenticated) return;
+    setPrescriptionsLoading(true);
+    setPrescriptionsError('');
+    try {
+      const res = await fetchPrescriptions();
+      setPrescriptions(res.data || []);
+    } catch (err) {
+      setPrescriptionsError(err.message || 'Không thể tải danh sách đơn thuốc!');
+    } finally {
+      setPrescriptionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadPrescriptions();
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !canPrescribe) return;
+
+    const loadPatients = async () => {
+      try {
+        const res = await fetchPatients();
+        setPatients(res.data || []);
+      } catch {
+        setPatients([]);
       }
-    ]);
+    };
+
+    loadPatients();
+  }, [isAuthenticated, canPrescribe]);
+
+  const handleOpenAdd = () => {
+    setEditingMedicine(null);
+    setIsModalOpen(true);
   };
 
-  const handleRemoveItem = (index) => {
-    setPrescriptionItems(prev => prev.filter((_, idx) => idx !== index));
+  const handleOpenEdit = (medicine) => {
+    setEditingMedicine(medicine);
+    setIsModalOpen(true);
   };
 
-  const handleQuantityChange = (index, qty) => {
-    const validQty = Math.max(1, parseInt(qty) || 1);
-    setPrescriptionItems(prev =>
-      prev.map((item, idx) => (idx === index ? { ...item, quantity: validQty } : item))
-    );
+  const handleSaveMedicine = async (payload) => {
+    setSubmittingMedicine(true);
+    try {
+      if (editingMedicine) {
+        await updateMedicine(editingMedicine._id, payload);
+      } else {
+        await createMedicine(payload);
+      }
+      await refetchMedicines();
+    } finally {
+      setSubmittingMedicine(false);
+    }
   };
 
-  const handleDispense = () => {
-    setIsDispensed(true);
+  const handleDeleteMedicine = async (medicine) => {
+    const confirmed = window.confirm(`Bạn có chắc muốn xóa thuốc "${medicine.name}" khỏi kho?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteMedicine(medicine._id);
+      await refetchMedicines();
+    } catch (err) {
+      window.alert(err.message || 'Không thể xóa thuốc!');
+    }
   };
+
+  const handleCreatePrescription = async (payload) => {
+    await createPrescription(payload);
+    await loadPrescriptions();
+  };
+
+  const handleDispensePrescription = async (id) => {
+    await dispensePrescription(id);
+    await loadPrescriptions();
+    await refetchMedicines();
+  };
+
+  const pendingCount = useMemo(
+    () => prescriptions.filter((p) => !p.isDispensed).length,
+    [prescriptions]
+  );
+
+  const tabs = [
+    { key: 'inventory', label: 'Kho thuốc phòng khám', icon: Package, visible: true },
+    { key: 'prescribe', label: 'Kê đơn thuốc', icon: Pill, visible: canPrescribe },
+    { key: 'prescriptions', label: 'Đơn thuốc & Xuất kho', icon: ClipboardList, visible: isAuthenticated, badge: pendingCount }
+  ].filter((tab) => tab.visible);
 
   return (
     <div className="space-y-6">
-      {/* Banner */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-        <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-xs font-semibold mb-2">
-          Phân hệ TV 4: Kê đơn thuốc & Quản lý Kho Dược
-        </span>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          Kê Đơn Thuốc Điện Tử & Quản Lý Tồn Kho
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Hỗ trợ bác sĩ thêm bớt thuốc động, tự động tính tổng tiền bằng useMemo và cảnh báo tồn kho.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Prescription Builder */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
-              <Pill className="w-5 h-5 mr-2 text-primary-600" /> Đơn thuốc cho bệnh nhân: Lê Thị Thu
-            </h2>
-            <Button variant="outline" size="sm" onClick={handleAddItem} className="flex items-center">
-              <Plus className="w-4 h-4 mr-1" /> Thêm thuốc
-            </Button>
-          </div>
-
-          {/* Items Table */}
-          <div className="space-y-3">
-            {prescriptionItems.map((item, index) => (
-              <div
-                key={index}
-                className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 grid grid-cols-12 gap-2 items-center text-sm"
-              >
-                <div className="col-span-4 font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  {item.name}
-                  <span className="block text-xs font-normal text-slate-400">{item.unit}</span>
-                </div>
-                <div className="col-span-3">
-                  <input
-                    type="text"
-                    value={item.dosage}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setPrescriptionItems(prev => prev.map((it, i) => i === index ? { ...it, dosage: val } : it));
-                    }}
-                    placeholder="Liều dùng..."
-                    className="w-full px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                  />
-                </div>
-                <div className="col-span-2 flex items-center space-x-1">
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => handleQuantityChange(index, e.target.value)}
-                    className="w-16 px-2 py-1 text-xs text-center rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
-                  />
-                </div>
-                <div className="col-span-2 text-right font-mono text-xs font-semibold text-primary-600">
-                  {(item.price * item.quantity).toLocaleString('vi-VN')} đ
-                </div>
-                <div className="col-span-1 text-right">
-                  <button
-                    onClick={() => handleRemoveItem(index)}
-                    className="p-1 text-slate-400 hover:text-red-500 rounded"
-                    title="Xóa thuốc"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Total & Actions */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Tổng tiền thuốc (useMemo):</p>
-              <p className="text-xl font-bold text-emerald-600">
-                {totalAmount.toLocaleString('vi-VN')} VNĐ
-              </p>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="w-4 h-4 mr-1.5" /> In Đơn PDF
-              </Button>
-              <Button
-                variant={isDispensed ? 'secondary' : 'primary'}
-                size="sm"
-                onClick={handleDispense}
-                disabled={isDispensed}
-              >
-                {isDispensed ? <Check className="w-4 h-4 mr-1.5 text-emerald-500" /> : null}
-                {isDispensed ? 'Đã xuất kho' : 'Dược sĩ duyệt xuất kho'}
-              </Button>
-            </div>
-          </div>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+        <div>
+          <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-xs font-semibold mb-2">
+            Quản lý Dược phẩm
+          </span>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            Kho Thuốc & Kê Đơn Điện Tử
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Tra cứu tồn kho, cảnh báo thuốc sắp hết, kê đơn thuốc và duyệt xuất kho.
+          </p>
         </div>
 
-        {/* Pharmacy Inventory Quick View */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-            Kho Thuốc Phòng Khám
-          </h2>
-          <div className="space-y-3">
-            {medicines.map((m) => (
-              <div key={m.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">{m.name}</p>
-                  <p className="text-slate-400">{m.price.toLocaleString('vi-VN')} đ / {m.unit}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`px-2 py-0.5 rounded font-bold ${
-                    m.stock <= 20
-                      ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                      : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                  }`}>
-                    Tồn: {m.stock} {m.unit}
-                  </span>
-                  {m.stock <= 20 && (
-                    <span className="block text-[10px] text-red-500 mt-1 flex items-center justify-end">
-                      <AlertCircle className="w-3 h-3 mr-0.5" /> Sắp hết
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+        {!isAuthenticated ? (
+          <Link
+            to="/login"
+            className="inline-flex items-center px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors shrink-0"
+          >
+            <LogIn className="w-4 h-4 mr-2" /> Đăng nhập để kê đơn / xuất kho
+          </Link>
+        ) : (
+          <div className="text-xs px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200 shrink-0">
+            Đang đăng nhập: <span className="font-semibold">{user?.fullName}</span> ({ROLE_LABELS[role] || role})
           </div>
-        </div>
+        )}
       </div>
+
+      <div className="flex flex-wrap gap-2 print:hidden">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                isActive
+                  ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Icon className="w-4 h-4 mr-2" />
+              {tab.label}
+              {tab.badge > 0 && (
+                <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="print:hidden">
+        {activeTab === 'inventory' && (
+          <MedicineTable
+            medicines={medicines}
+            loading={medicinesLoading}
+            error={medicinesError}
+            onRetry={refetchMedicines}
+            canManage={canManageInventory}
+            onAdd={handleOpenAdd}
+            onEdit={handleOpenEdit}
+            onDelete={handleDeleteMedicine}
+          />
+        )}
+
+        {activeTab === 'prescribe' && canPrescribe && (
+          <PrescriptionBuilder
+            medicines={medicines}
+            patients={patients}
+            onCreatePrescription={handleCreatePrescription}
+          />
+        )}
+
+        {activeTab === 'prescriptions' && isAuthenticated && (
+          <PrescriptionList
+            prescriptions={prescriptions}
+            loading={prescriptionsLoading}
+            error={prescriptionsError}
+            onRetry={loadPrescriptions}
+            canDispense={canDispense}
+            onDispense={handleDispensePrescription}
+            onPrint={setPrintingPrescription}
+          />
+        )}
+      </div>
+
+      <MedicineFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialData={editingMedicine}
+        onSubmit={handleSaveMedicine}
+        submitting={submittingMedicine}
+      />
+
+      <PrintablePrescription
+        prescription={printingPrescription}
+        onClose={() => setPrintingPrescription(null)}
+      />
     </div>
   );
 };

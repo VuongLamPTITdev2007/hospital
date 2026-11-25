@@ -35,9 +35,9 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/specialties', require('./routes/specialtyRoutes')); // TV 1: Chuyên khoa
 app.use('/api/doctors', require('./routes/doctorRoutes'));         // TV 1: Bác sĩ
 app.use('/api/appointments', require('./routes/appointmentRoutes')); // TV 2: Đặt lịch & Giữ chỗ 5p
-app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3: Bệnh án & Khám bệnh
+app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3: Khám bệnh & Bệnh án EHR
 
-// Placeholders cho các Routes phân hệ khác
+// Placeholders cho các Routes phân hệ của các thành viên khác
 // app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4
 // app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5
 // app.use('/api/admin', require('./routes/adminRoutes'));           // TV 6
