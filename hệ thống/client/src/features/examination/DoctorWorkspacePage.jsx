@@ -80,8 +80,8 @@ const DoctorWorkspacePage = () => {
   const fileInputRef = useRef(null);
 
   // State danh sách hàng đợi khám
-  const [patients, setPatients] = useState(FALLBACK_PATIENTS);
-  const [activePatient, setActivePatient] = useState(FALLBACK_PATIENTS[0]);
+  const [patients, setPatients] = useState([]);
+  const [activePatient, setActivePatient] = useState(null);
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -89,13 +89,11 @@ const DoctorWorkspacePage = () => {
   const debouncedSearch = useDebounce(searchTerm, 350);
 
   // State các trường của form bệnh án điện tử (controlled inputs)
-  const [symptoms, setSymptoms] = useState(FALLBACK_PATIENTS[0]?.symptomsNote || '');
-  const [diagnosis, setDiagnosis] = useState('Rối loạn nhịp xoang nhẹ / Theo dõi Tăng huyết áp độ 1');
-  const [medicalHistory, setMedicalHistory] = useState('Tiền sử gia đình có người mắc tim mạch. Chưa ghi nhận dị ứng thuốc.');
-  const [clinicalNotes, setClinicalNotes] = useState('Đề nghị đo điện tâm đồ ECG và siêu âm Doppler tim. Hạn chế ăn mặn.');
-  const [attachedImages, setAttachedImages] = useState([
-    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=500&q=80'
-  ]);
+  const [symptoms, setSymptoms] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+  const [medicalHistory, setMedicalHistory] = useState('');
+  const [clinicalNotes, setClinicalNotes] = useState('');
+  const [attachedImages, setAttachedImages] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
   // State xử lý lưu, chuyển trạng thái và thông báo
@@ -119,10 +117,11 @@ const DoctorWorkspacePage = () => {
         setActivePatient(res.data[0]);
         setSymptoms(res.data[0]?.symptomsNote || '');
       } else {
-        setPatients(FALLBACK_PATIENTS);
+        setPatients([]); setActivePatient(null);
       }
     } catch (err) {
-      setPatients(FALLBACK_PATIENTS);
+      setPatients([]); setActivePatient(null);
+      setStatusMessage({ type: 'error', text: err.message || 'Không thể tải hàng đợi khám.' });
     } finally {
       setLoadingQueue(false);
     }
@@ -142,6 +141,7 @@ const DoctorWorkspacePage = () => {
   const handleSelectPatient = (patient) => {
     setActivePatient(patient);
     setSymptoms(patient.symptomsNote || patient.symptoms || '');
+    setDiagnosis(''); setMedicalHistory(''); setClinicalNotes(''); setAttachedImages([]);
     setStatusMessage(null);
   };
 
@@ -182,19 +182,14 @@ const DoctorWorkspacePage = () => {
         type: 'success',
         text: `Đã tiếp nhận bệnh nhân ${activePatient.patientName || activePatient.patientId?.fullName} vào phòng khám!`
       });
+      setPatients((prev) => prev.map((p) => (p._id || p.appointmentId) === targetId ? { ...p, status: 'in_progress' } : p));
+      setActivePatient((prev) => ({ ...prev, status: 'in_progress' }));
     } catch (err) {
-      // Nếu đang chạy bằng dữ liệu mẫu chưa có trên DB, vẫn cập nhật trạng thái trên giao diện để demo
       setStatusMessage({
-        type: 'success',
-        text: `Đã chuyển ca khám của ${activePatient.patientName || activePatient.patientId?.fullName} sang trạng thái Đang khám.`
+        type: 'error',
+        text: err.message || 'Không thể chuyển trạng thái ca khám.'
       });
     } finally {
-      setPatients((prev) =>
-        prev.map((p) =>
-          (p._id || p.appointmentId) === targetId ? { ...p, status: 'in_progress' } : p
-        )
-      );
-      setActivePatient((prev) => ({ ...prev, status: 'in_progress' }));
       setIsUpdatingStatus(false);
     }
   };
@@ -202,6 +197,7 @@ const DoctorWorkspacePage = () => {
   // Lưu hồ sơ bệnh án điện tử (POST /api/records)
   const handleSaveRecord = async (e) => {
     e.preventDefault();
+    if (!activePatient) { setStatusMessage({ type: 'error', text: 'Vui lòng chọn lịch khám.' }); return; }
     if (!symptoms.trim() || !diagnosis.trim()) {
       setStatusMessage({
         type: 'error',
@@ -215,8 +211,8 @@ const DoctorWorkspacePage = () => {
 
     const payload = {
       appointmentId: activePatient?._id || activePatient?.appointmentId,
-      patientId: activePatient?.patientId?._id || activePatient?.patientId || '65b1c9a1234567890abcdef1',
-      doctorId: user?.id || '65b1c9a1234567890abcdef2',
+      patientId: activePatient?.patientId?._id || activePatient?.patientId,
+      doctorId: user?.id,
       symptoms: symptoms.trim(),
       diagnosis: diagnosis.trim(),
       medicalHistory: medicalHistory.trim(),
@@ -251,7 +247,8 @@ const DoctorWorkspacePage = () => {
 
   // Xem lịch sử các lần khám trước của bệnh nhân
   const handleViewPatientHistory = async () => {
-    const pId = activePatient?.patientId?._id || activePatient?.patientId || 'pat_01';
+    const pId = activePatient?.patientId?._id || activePatient?.patientId;
+    if (!pId) return;
     setIsHistoryOpen(true);
     setLoadingHistory(true);
     try {
@@ -262,16 +259,8 @@ const DoctorWorkspacePage = () => {
         setPatientHistory([]);
       }
     } catch (err) {
-      setPatientHistory([
-        {
-          _id: 'rec_old_01',
-          createdAt: '2026-08-15T09:00:00.000Z',
-          diagnosis: 'Cơn đau thắt ngực ổn định / Viêm họng cấp',
-          symptoms: 'Đau tức ngực kèm rát cổ họng',
-          clinicalNotes: 'Đã kê đơn 7 ngày và hẹn tái khám sau 1 tháng.',
-          doctorId: { fullName: 'BS. Lê Hoài An' }
-        }
-      ]);
+      setPatientHistory([]);
+      setStatusMessage({ type: 'error', text: err.message || 'Không thể tải lịch sử khám.' });
     } finally {
       setLoadingHistory(false);
     }
@@ -316,15 +305,20 @@ const DoctorWorkspacePage = () => {
   };
 
   // Chuyển thông tin bệnh nhân sang phân hệ Kê đơn thuốc (TV4)
-  const handleForwardToPharmacy = () => {
-    navigate('/pharmacy', {
+  const handleForwardToPharmacy = async () => {
+    if (!activePatient?.hasMedicalRecord) { setStatusMessage({ type: 'error', text: 'Hãy lưu bệnh án trước khi kê đơn.' }); return; }
+    try {
+      const record = await axiosClient.get(`/records/appointment/${activePatient._id}`);
+      navigate('/pharmacy', {
       state: {
+        recordId: record.data._id,
         appointmentId: activePatient?._id || activePatient?.appointmentId,
         patientId: activePatient?.patientId?._id || activePatient?.patientId,
         patientName: activePatient?.patientName || activePatient?.patientId?.fullName,
         diagnosis: diagnosis.trim()
       }
-    });
+      });
+    } catch (err) { setStatusMessage({ type: 'error', text: err.message || 'Không thể tải bệnh án.' }); }
   };
 
   const isWaitingPatient =

@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import Loader from '../../components/common/Loader';
+import PrescriptionPanel from './PrescriptionPanel';
 
 const PharmacyInventoryPage = () => {
   const { user, isAuthenticated } = useAuth();
   const role = user?.role || '';
+  const location = useLocation();
 
   const canPrescribe = role === 'doctor' || role === 'admin';
-  const [activeTab, setActiveTab] = useState('inventory');
+  const [activeTab, setActiveTab] = useState(location.state?.recordId ? 'prescribe' : 'inventory');
 
   const {
     data: medicinesRes,
     loading: medicinesLoading,
-    error: medicinesError
+    error: medicinesError,
+    refetch: refreshMedicines
   } = useFetch('/medicines');
 
   const medicines = medicinesRes?.data || [];
@@ -112,15 +115,11 @@ const PharmacyInventoryPage = () => {
       )}
 
       {activeTab === 'prescribe' && canPrescribe && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">
-          Chưa có mẫu kê đơn thuốc.
-        </div>
+        <PrescriptionPanel mode="prescribe" record={location.state} medicines={medicines} />
       )}
 
       {activeTab === 'prescriptions' && isAuthenticated && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">
-          Chưa có đơn thuốc nào.
-        </div>
+        <PrescriptionPanel mode="list" role={role} onDispensed={refreshMedicines} />
       )}
     </div>
   );

@@ -1,15 +1,17 @@
 const Prescription = require('../models/Prescription');
 const Medicine = require('../models/Medicine');
 const User = require('../models/User');
+const MedicalRecord = require('../models/MedicalRecord');
+const mongoose = require('mongoose');
 
 exports.createPrescription = async (req, res, next) => {
   try {
     const { patientId, recordId, items, doctorNotes } = req.body;
 
-    if (!patientId) {
+    if (!patientId || !recordId) {
       return res.status(400).json({
         success: false,
-        message: 'Vui lòng chọn bệnh nhân cho đơn thuốc!'
+        message: 'Vui lòng chọn bệnh án và bệnh nhân cho đơn thuốc!'
       });
     }
 
@@ -28,11 +30,18 @@ exports.createPrescription = async (req, res, next) => {
       });
     }
 
+    const record = await MedicalRecord.findById(recordId);
+    if (!record) return res.status(404).json({ success: false, message: 'Không tìm thấy bệnh án.' });
+    if (String(record.patientId) !== String(patientId)) return res.status(400).json({ success: false, message: 'Bệnh nhân không khớp với bệnh án.' });
+    if (req.user.role !== 'admin' && String(record.doctorId) !== req.user.id) return res.status(403).json({ success: false, message: 'Bạn không phải bác sĩ phụ trách bệnh án.' });
+    if (record.prescriptionId) return res.status(409).json({ success: false, message: 'Bệnh án đã có đơn thuốc.' });
+    if (new Set(items.map((item) => String(item.medicineId))).size !== items.length) return res.status(400).json({ success: false, message: 'Mỗi thuốc chỉ xuất hiện một lần trong đơn.' });
+
     let totalAmount = 0;
     const prescriptionItems = [];
 
     for (const item of items) {
-      if (!item.medicineId || !item.quantity || Number(item.quantity) < 1 || !item.dosage || !item.dosage.trim()) {
+      if (!item.medicineId || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || typeof item.dosage !== 'string' || !item.dosage.trim()) {
         return res.status(400).json({
           success: false,
           message: 'Mỗi thuốc trong đơn phải có mã thuốc, số lượng (>= 1) và liều dùng hợp lệ!'
@@ -71,7 +80,7 @@ exports.createPrescription = async (req, res, next) => {
 
     const prescriptionData = {
       patientId,
-      doctorId: req.user.id,
+      doctorId: record.doctorId,
       items: prescriptionItems,
       totalAmount
     };
@@ -84,7 +93,16 @@ exports.createPrescription = async (req, res, next) => {
       prescriptionData.doctorNotes = doctorNotes.trim();
     }
 
-    const created = await Prescription.create(prescriptionData);
+    let created;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const prescriptionId = new mongoose.Types.ObjectId();
+        const linked = await MedicalRecord.findOneAndUpdate({ _id: recordId, patientId, doctorId: record.doctorId, prescriptionId: null }, { $set: { prescriptionId } }, { new: true, session });
+        if (!linked) { const error = new Error('Bệnh án đã có đơn thuốc hoặc đã thay đổi.'); error.statusCode = 409; throw error; }
+        [created] = await Prescription.create([{ ...prescriptionData, _id: prescriptionId }], { session });
+      });
+    } finally { await session.endSession(); }
     const populated = await Prescription.findById(created._id)
       .populate('patientId', 'fullName email phone')
       .populate('doctorId', 'fullName email');
@@ -197,50 +215,23 @@ exports.getPatients = async (req, res, next) => {
 
 exports.dispensePrescription = async (req, res, next) => {
   try {
-    const prescription = await Prescription.findById(req.params.id);
-
-    if (!prescription) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy đơn thuốc!'
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const prescription = await Prescription.findById(req.params.id).session(session);
+        if (!prescription) { const error = new Error('Không tìm thấy đơn thuốc.'); error.statusCode = 404; throw error; }
+        if (prescription.isDispensed) { const error = new Error('Đơn thuốc đã được xuất kho.'); error.statusCode = 409; throw error; }
+        for (const item of prescription.items) {
+          const medicine = await Medicine.findOneAndUpdate({ _id: item.medicineId, stockQuantity: { $gte: item.quantity } }, { $inc: { stockQuantity: -item.quantity } }, { new: true, session });
+          if (!medicine) { const error = new Error(`Không đủ tồn kho cho thuốc ${item.medicineName}.`); error.statusCode = 409; throw error; }
+        }
+        prescription.isDispensed = true;
+        prescription.dispensedAt = new Date();
+        await prescription.save({ session });
       });
-    }
+    } finally { await session.endSession(); }
 
-    if (prescription.isDispensed) {
-      return res.status(409).json({
-        success: false,
-        message: 'Đơn thuốc này đã được xuất kho trước đó!'
-      });
-    }
-
-    for (const item of prescription.items) {
-      const med = await Medicine.findById(item.medicineId);
-      if (!med) {
-        return res.status(404).json({
-          success: false,
-          message: `Không tìm thấy thuốc "${item.medicineName}" trong kho!`
-        });
-      }
-
-      if (med.stockQuantity < item.quantity) {
-        return res.status(409).json({
-          success: false,
-          message: `Thuốc "${med.name}" không đủ tồn kho để xuất (còn ${med.stockQuantity} ${med.unit}, cần ${item.quantity})!`
-        });
-      }
-    }
-
-    for (const item of prescription.items) {
-      await Medicine.findByIdAndUpdate(item.medicineId, {
-        $inc: { stockQuantity: -item.quantity }
-      });
-    }
-
-    prescription.isDispensed = true;
-    prescription.dispensedAt = new Date();
-    await prescription.save();
-
-    const populated = await Prescription.findById(prescription._id)
+    const populated = await Prescription.findById(req.params.id)
       .populate('patientId', 'fullName email phone')
       .populate('doctorId', 'fullName email');
 
