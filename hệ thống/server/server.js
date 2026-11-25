@@ -36,10 +36,11 @@ app.use('/api/specialties', require('./routes/specialtyRoutes')); // TV 1: Chuy�
 app.use('/api/doctors', require('./routes/doctorRoutes'));         // TV 1: Bác sĩ
 app.use('/api/appointments', require('./routes/appointmentRoutes')); // TV 2: Đặt lịch & Giữ chỗ 5p
 app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3: Khám bệnh & Bệnh án EHR
+app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4: Kho thuốc
+app.use('/api/prescriptions', require('./routes/prescriptionRoutes')); // TV 4: Kê đơn thuốc
+app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5: Hỏi - Đáp & Đánh giá (Nguyễn Thuỳ Linh)
 
 // Placeholders cho các Routes phân hệ của các thành viên khác
-// app.use('/api/medicines', require('./routes/medicineRoutes'));     // TV 4
-// app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5
 // app.use('/api/admin', require('./routes/adminRoutes'));           // TV 6
 
 // Xử lý 404 cho Route không tồn tại
