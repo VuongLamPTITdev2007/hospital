@@ -190,11 +190,9 @@ const QnAPage = () => {
 
   // ==================== CÁC HÀNH ĐỘNG TƯƠNG TÁC (MUTATIONS) ====================
 
-  // Mở modal đánh giá tự chọn bác sĩ
+  // Đánh giá luôn bắt đầu từ ca khám thuộc tài khoản hiện tại.
   const handleOpenGenericReview = () => {
-    setSelectedDoctorForReview(null);
-    setSelectedAppointmentId(null);
-    setIsReviewModalOpen(true);
+    setActiveTab('history');
   };
 
   // Mở modal đánh giá gắn với 1 ca khám cụ thể (khóa cứng bác sĩ)

@@ -1,6 +1,7 @@
 const Discussion = require('../models/Discussion');
 const Review = require('../models/Review');
 const Appointment = require('../models/Appointment');
+const MedicalRecord = require('../models/MedicalRecord');
 const DoctorProfile = require('../models/DoctorProfile');
 const Specialty = require('../models/Specialty');
 const User = require('../models/User');
@@ -348,11 +349,16 @@ exports.getMyAppointments = async (req, res, next) => {
     // Lấy danh sách tất cả các đánh giá mà bệnh nhân này đã gửi
     const patientReviews = await Review.find({ patientId }).select('appointmentId rating comment createdAt');
     const reviewedMap = new Map(patientReviews.map((r) => [r.appointmentId.toString(), r]));
+    const records = await MedicalRecord.find({ patientId, appointmentId: { $in: appointments.map((app) => app._id) } })
+      .select('appointmentId doctorId diagnosis');
+    const recordsMap = new Map(records.map((record) => [record.appointmentId.toString(), record]));
 
     // Format kết quả trả về cho frontend
     const formattedAppointments = appointments.map((app) => {
       const isReviewed = reviewedMap.has(app._id.toString());
       const reviewData = reviewedMap.get(app._id.toString()) || null;
+      const record = recordsMap.get(app._id.toString());
+      const hasMedicalRecord = Boolean(record && app.doctorId?._id && record.doctorId.toString() === app.doctorId._id.toString());
 
       return {
         id: app._id,
@@ -362,7 +368,9 @@ exports.getMyAppointments = async (req, res, next) => {
         date: app.date,
         timeSlot: app.timeSlot,
         status: app.status,
-        diagnosis: app.symptomsNote || 'Chưa có ghi chú chẩn đoán bổ sung.',
+        diagnosis: hasMedicalRecord ? record.diagnosis : 'Chưa có bệnh án được lưu cho ca khám này.',
+        hasMedicalRecord,
+        canReview: app.status === 'completed' && hasMedicalRecord && !isReviewed,
         fee: app.fee,
         isReviewed,
         review: reviewData
@@ -401,14 +409,14 @@ exports.createReview = async (req, res, next) => {
     }
 
     const numRating = Number(rating);
-    if (!numRating || numRating < 1 || numRating > 5) {
+    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({
         success: false,
         message: 'Số sao đánh giá phải từ 1 đến 5 sao.'
       });
     }
 
-    if (!comment || comment.trim().length < 10) {
+    if (typeof comment !== 'string' || comment.trim().length < 10) {
       return res.status(400).json({
         success: false,
         message: 'Nhận xét phải có ít nhất 10 ký tự để đảm bảo chất lượng phản hồi.'
@@ -437,6 +445,11 @@ exports.createReview = async (req, res, next) => {
         success: false,
         message: `Ca khám hiện tại có trạng thái '${appointment.status}'. Chỉ những ca khám đã hoàn thành thực tế mới được phép đánh giá!`
       });
+    }
+
+    const record = await MedicalRecord.exists({ appointmentId: appointment._id, patientId: req.user.id, doctorId: appointment.doctorId });
+    if (!record) {
+      return res.status(400).json({ success: false, message: 'Ca khám chưa có bệnh án hợp lệ. Vui lòng liên hệ phòng khám.' });
     }
 
     // ========== CHỐNG SPAM LỚP 3: Chống trùng lặp (1 ca khám chỉ được đánh giá 1 lần) ==========

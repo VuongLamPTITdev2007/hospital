@@ -234,7 +234,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                           <Check className="w-4 h-4 text-emerald-500" />
                           <span>Đã đánh giá</span>
                         </div>
-                      ) : (
+                      ) : app.canReview ? (
                         <Button
                           variant="primary"
                           size="sm"
@@ -244,8 +244,10 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                           <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-300 text-amber-300" />
                           Đánh giá bác sĩ
                         </Button>
+                      ) : (
+                        <span className="text-[11px] text-amber-700 italic">Ca khám chưa có bệnh án hợp lệ. Vui lòng liên hệ phòng khám.</span>
                       )
-                    ) : app.status === 'confirmed' ? (
+                    ) : ['confirmed', 'waiting', 'in_progress', 'holding'].includes(app.status) ? (
                       <span className="text-[11px] text-sky-600 dark:text-sky-400 italic">
                         * Đánh giá sẽ mở sau khi hoàn tất buổi khám
                       </span>

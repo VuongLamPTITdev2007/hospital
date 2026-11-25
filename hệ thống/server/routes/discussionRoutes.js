@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../middlewares/auth');
+const { verifyToken, authorizeRoles } = require('../middlewares/auth');
 const {
   getDiscussions,
   getDiscussionById,
@@ -19,7 +19,7 @@ router.get('/my-appointments', verifyToken, getMyAppointments);
 
 router.route('/reviews')
   .get(getReviews)
-  .post(verifyToken, createReview);
+  .post(verifyToken, authorizeRoles('patient'), createReview);
 
 router.get('/reviews/doctor/:doctorId', getDoctorReviewsById);
 
