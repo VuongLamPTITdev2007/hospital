@@ -43,10 +43,10 @@ const App = () => {
         <Route path="doctors/:id" element={<DoctorDetailPage />} />
         
         {/* Phân hệ TV 2: Đặt lịch hẹn */}
-        <Route path="booking" element={<BookingPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['patient']} />}><Route path="booking" element={<BookingPage />} /></Route>
         
         {/* Phân hệ TV 3: Bàn làm việc bác sĩ */}
-        <Route path="examination" element={<DoctorWorkspacePage />} />
+        <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}><Route path="examination" element={<DoctorWorkspacePage />} /></Route>
         
         {/* Phân hệ TV 4: Kho dược phẩm */}
         <Route path="pharmacy" element={<PharmacyInventoryPage />} />
@@ -55,7 +55,7 @@ const App = () => {
         <Route path="community" element={<QnAPage />} />
         
         {/* Phân hệ TV 6: Quản trị Admin */}
-        <Route path="admin" element={<AdminDashboardPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}><Route path="admin" element={<AdminDashboardPage />} /></Route>
 
         {/* 404 Route */}
         <Route path="*" element={<NotFoundPage />} />

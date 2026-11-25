@@ -40,7 +40,7 @@ app.use('/api/records', require('./routes/medicalRecordRoutes'));   // TV 3
 app.use('/api/medicines', require('./routes/medicineRoutes'));
 app.use('/api/prescriptions', require('./routes/prescriptionRoutes'));
 app.use('/api/discussions', require('./routes/discussionRoutes')); // TV 5: Hỏi - Đáp & Đánh giá (Nguyễn Thuỳ Linh)
-// app.use('/api/admin', require('./routes/adminRoutes'));           // TV 6
+app.use('/api/admin', require('./routes/adminRoutes'));             // TV 6
 
 // Xử lý 404 cho Route không tồn tại
 app.use('*', (req, res) => {
