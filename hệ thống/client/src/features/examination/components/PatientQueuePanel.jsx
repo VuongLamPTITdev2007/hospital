@@ -1,5 +1,7 @@
 import React from 'react';
-import { ClipboardList, Search, Clock, FileCheck, Activity } from 'lucide-react';
+import { ClipboardList, Search, Clock, FileCheck, Activity, AlertCircle, CalendarX } from 'lucide-react';
+import Loader from '../../../components/common/Loader';
+import Button from '../../../components/common/Button';
 
 const STATUS_TABS = [
   { key: 'all', label: 'Tất cả' },
@@ -10,7 +12,11 @@ const STATUS_TABS = [
 
 const PatientQueuePanel = ({
   patients,
+  totalCount = 0,
   activePatient,
+  loading = false,
+  error = '',
+  onRetry,
   searchTerm,
   onSearchChange,
   statusFilter,
@@ -36,7 +42,8 @@ const PatientQueuePanel = ({
           placeholder="Tìm theo tên, SĐT hoặc triệu chứng..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 outline-none"
+          disabled={loading || Boolean(error)}
+          className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 outline-none disabled:opacity-60"
         />
       </div>
 
@@ -49,7 +56,8 @@ const PatientQueuePanel = ({
               key={tab.key}
               type="button"
               onClick={() => onStatusFilterChange(tab.key)}
-              className={`py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all ${
+              disabled={loading || Boolean(error)}
+              className={`py-1.5 px-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-60 ${
                 isActive
                   ? 'bg-white dark:bg-slate-800 text-primary-700 dark:text-primary-300 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -61,11 +69,35 @@ const PatientQueuePanel = ({
         })}
       </div>
 
-      {/* Danh sách bệnh nhân */}
+      {/* Trạng thái Loading / Lỗi / Danh sách rỗng / Danh sách ca khám */}
       <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
-        {patients.length === 0 ? (
+        {loading ? (
+          <div className="py-8">
+            <Loader text="Đang tải hàng đợi khám..." />
+          </div>
+        ) : error ? (
+          <div className="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
+            <p className="text-xs text-red-700 dark:text-red-300 font-medium">{error}</p>
+            {onRetry && (
+              <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+                Thử tải lại
+              </Button>
+            )}
+          </div>
+        ) : totalCount === 0 ? (
+          <div className="py-10 px-4 text-center space-y-2">
+            <CalendarX className="w-9 h-9 text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              Chưa có ca khám nào trong hàng đợi
+            </p>
+            <p className="text-xs text-slate-400">
+              Khi bệnh nhân đặt lịch hẹn thành công, danh sách sẽ tự động xuất hiện tại đây.
+            </p>
+          </div>
+        ) : patients.length === 0 ? (
           <div className="text-center py-8 text-xs text-slate-400">
-            Không tìm thấy bệnh nhân phù hợp
+            Không tìm thấy bệnh nhân phù hợp với bộ lọc hiện tại
           </div>
         ) : (
           patients.map((p) => {
