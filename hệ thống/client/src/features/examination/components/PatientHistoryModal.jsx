@@ -1,8 +1,9 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
 import Loader from '../../../components/common/Loader';
 
-const PatientHistoryModal = ({ isOpen, onClose, patientName, loading, history }) => {
+const PatientHistoryModal = ({ isOpen, onClose, patientName, loading, error, history }) => {
   return (
     <Modal
       isOpen={isOpen}
@@ -12,6 +13,11 @@ const PatientHistoryModal = ({ isOpen, onClose, patientName, loading, history })
     >
       {loading ? (
         <Loader text="Đang tải lịch sử bệnh án..." />
+      ) : error ? (
+        <div className="p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 text-red-700 dark:text-red-300 text-sm flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
       ) : history.length === 0 ? (
         <div className="text-center py-6 text-slate-500 text-sm">
           Bệnh nhân chưa có lịch sử bệnh án trước đây.
