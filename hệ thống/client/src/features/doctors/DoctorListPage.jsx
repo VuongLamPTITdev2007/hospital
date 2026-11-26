@@ -210,10 +210,10 @@ const DoctorListPage = () => {
         limit: 6
       };
       const res = await axiosClient.get('/doctors', { params });
-      if (res.success && res.data.length > 0) {
+      if (res.success && Array.isArray(res.data)) {
         setDoctors(res.data);
-        setTotalPages(res.totalPages);
-        setTotalDoctors(res.total);
+        setTotalPages(res.totalPages || 1);
+        setTotalDoctors(res.total ?? res.data.length);
       } else {
         filterClientData();
       }

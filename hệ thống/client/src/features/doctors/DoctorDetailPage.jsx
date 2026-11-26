@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { selectDoctor } from '../../store/slices/bookingSlice';
+import { selectDoctor, selectDate, selectSlot, setStep } from '../../store/slices/bookingSlice';
 import axiosClient from '../../api/axiosClient';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
@@ -205,17 +205,28 @@ const DoctorDetailPage = () => {
           setDoctor(res.data);
           setReviews(res.reviews || []);
         } else if (isMounted) {
-          fallbackDoctor();
+          setDoctor(null);
         }
       } catch (err) {
-        if (isMounted) fallbackDoctor();
+        if (isMounted) {
+          // Chỉ fallback khi là mã tĩnh hoặc lỗi kết nối mạng; nếu backend trả 404 thì hiển thị trang Không tìm thấy
+          if (HANOI_DOCTORS_MAP[id] || !err.response) {
+            fallbackDoctor();
+          } else {
+            setDoctor(null);
+          }
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
     const fallbackDoctor = () => {
-      const found = HANOI_DOCTORS_MAP[id] || HANOI_DOCTORS_MAP['doc_lanhieu'];
+      const found = HANOI_DOCTORS_MAP[id];
+      if (!found) {
+        setDoctor(null);
+        return;
+      }
       setDoctor({ _id: id, ...found });
       setReviews([
         {
@@ -242,11 +253,47 @@ const DoctorDetailPage = () => {
     };
   }, [id]);
 
+  // Tính ngày gần nhất ứng với thứ trong tuần (dayOfWeek: 1=Thứ 2 ... 7=CN) theo giờ Việt Nam
+  const getNextDateForDayOfWeek = (dayOfWeek, slotText) => {
+    const now = new Date();
+    const vnTodayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const vnTimeStr = now.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const baseDate = new Date(`${vnTodayStr}T00:00:00Z`);
+    const currentIsoDay = baseDate.getUTCDay() || 7;
+    let deltaDays = (dayOfWeek - currentIsoDay + 7) % 7;
+
+    // Nếu trùng hôm nay nhưng khung giờ đã qua thì tự động chuyển sang tuần kế tiếp
+    const slotStart = String(slotText || '').replace(/\s+/g, '').slice(0, 5);
+    if (deltaDays === 0 && slotStart && slotStart <= vnTimeStr) {
+      deltaDays = 7;
+    }
+
+    baseDate.setUTCDate(baseDate.getUTCDate() + deltaDays);
+    return baseDate.toISOString().slice(0, 10);
+  };
+
   const handleBookAppointment = () => {
     if (doctor) {
       dispatch(selectDoctor(doctor));
+      dispatch(setStep(1));
       navigate('/booking');
     }
+  };
+
+  // Bấm trực tiếp vào 1 khung giờ trong lịch tuần -> điền sẵn bác sĩ + ngày + slot và nhảy thẳng Bước 2
+  const handleSelectScheduleSlot = (dayOfWeek, slot) => {
+    if (!doctor) return;
+    const targetDate = getNextDateForDayOfWeek(dayOfWeek, slot);
+    dispatch(selectDoctor(doctor));
+    dispatch(selectDate(targetDate));
+    dispatch(selectSlot(slot));
+    dispatch(setStep(2));
+    navigate('/booking');
   };
 
   if (loading) {
@@ -396,7 +443,7 @@ const DoctorDetailPage = () => {
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
             <Clock className="w-4 h-4 mr-2 text-primary-600" /> Lịch khám chuyên gia theo tuần
           </h2>
-          <p className="text-xs text-slate-500">Mỗi ca khám 30 phút. Bệnh nhân chọn ca phù hợp để giữ chỗ trực tuyến.</p>
+          <p className="text-xs text-slate-500">Mỗi ca khám 30 phút. Bấm trực tiếp vào khung giờ bên dưới để đặt lịch nhanh (vào thẳng Bước 2).</p>
 
           <div className="space-y-3">
             {doctor.workingHours && doctor.workingHours.length > 0 ? (
@@ -408,11 +455,17 @@ const DoctorDetailPage = () => {
                       {wh.slots?.length || 0} ca khám
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1 pt-1">
+                  <div className="flex flex-wrap gap-1.5 pt-1">
                     {wh.slots?.map((slot, sIdx) => (
-                      <span key={sIdx} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-mono text-[10px]">
+                      <button
+                        key={sIdx}
+                        type="button"
+                        onClick={() => handleSelectScheduleSlot(wh.dayOfWeek, slot)}
+                        title={`Đặt lịch ${DAY_NAMES[wh.dayOfWeek] || ''} lúc ${slot}`}
+                        className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-primary-600 hover:text-white dark:hover:bg-primary-600 font-mono text-[11px] transition-colors cursor-pointer"
+                      >
                         {slot}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>

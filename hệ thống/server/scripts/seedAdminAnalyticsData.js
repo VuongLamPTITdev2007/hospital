@@ -64,26 +64,50 @@ const seed = async () => {
     )
   ]);
 
-  const [admin, patient, doctorCardiology, doctorPediatrics, pharmacist] = await Promise.all([
+  // Ưu tiên dùng lại bác sĩ đầu ngành Hà Nội đã seed để không sinh thêm bản ghi thiếu degree/hospital trên trang Bác sĩ
+  let [doctorCardiology, doctorPediatrics] = await Promise.all([
+    User.findOne({ email: 'lanhieu.nguyen@medcare.vn' }),
+    User.findOne({ email: 'tiendung.nguyen@medcare.vn' })
+  ]);
+
+  if (!doctorCardiology) {
+    doctorCardiology = await ensureUser({ fullName: 'PGS.TS.BS. Nguyễn Lân Hiếu', email: 'lanhieu.nguyen@medcare.vn', phone: '0912111001', role: 'doctor' });
+  }
+  if (!doctorPediatrics) {
+    doctorPediatrics = await ensureUser({ fullName: 'PGS.TS.BS. Nguyễn Tiến Dũng', email: 'tiendung.nguyen@medcare.vn', phone: '0912111002', role: 'doctor' });
+  }
+
+  const [admin, patient, pharmacist] = await Promise.all([
     ensureUser({ fullName: 'Admin Kiểm Thử', email: 'admin.minh@medcare.local', phone: '0900000001', role: 'admin' }),
     ensureUser({ fullName: 'Bệnh nhân Kiểm Thử', email: 'patient.minh@medcare.local', phone: '0900000002', role: 'patient' }),
-    ensureUser({ fullName: 'BS Kiểm Thử Tim Mạch', email: 'doctor.tim@medcare.local', phone: '0900000003', role: 'doctor' }),
-    ensureUser({ fullName: 'BS Kiểm Thử Nhi Khoa', email: 'doctor.nhi@medcare.local', phone: '0900000004', role: 'doctor' }),
     ensureUser({ fullName: 'Dược sĩ Kiểm Thử', email: 'pharmacist.minh@medcare.local', phone: '0900000005', role: 'pharmacist' })
   ]);
 
-  const [cardiologyProfile, pediatricsProfile] = await Promise.all([
-    DoctorProfile.findOneAndUpdate(
-      { userId: doctorCardiology._id },
-      { userId: doctorCardiology._id, specialtyId: cardiology._id, consultationFee: 350000, experienceYears: 10 },
-      { new: true, upsert: true, runValidators: true }
-    ),
-    DoctorProfile.findOneAndUpdate(
-      { userId: doctorPediatrics._id },
-      { userId: doctorPediatrics._id, specialtyId: pediatrics._id, consultationFee: 250000, experienceYears: 8 },
-      { new: true, upsert: true, runValidators: true }
-    )
+  let [cardiologyProfile, pediatricsProfile] = await Promise.all([
+    DoctorProfile.findOne({ userId: doctorCardiology._id }),
+    DoctorProfile.findOne({ userId: doctorPediatrics._id })
   ]);
+
+  if (!cardiologyProfile) {
+    cardiologyProfile = await DoctorProfile.create({
+      userId: doctorCardiology._id,
+      specialtyId: cardiology._id,
+      degree: 'Phó Giáo sư, Tiến sĩ, Bác sĩ Cao cấp',
+      hospital: 'Bệnh viện Đại học Y Hà Nội',
+      consultationFee: 450000,
+      experienceYears: 25
+    });
+  }
+  if (!pediatricsProfile) {
+    pediatricsProfile = await DoctorProfile.create({
+      userId: doctorPediatrics._id,
+      specialtyId: pediatrics._id,
+      degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Nhi',
+      hospital: 'Bệnh viện Bạch Mai Hà Nội',
+      consultationFee: 350000,
+      experienceYears: 32
+    });
+  }
 
   await Promise.all([
     ensureAppointment({ patient, doctor: doctorCardiology, doctorProfile: cardiologyProfile, date: today, timeSlot: '08:00-08:30', fee: 350000, paymentStatus: 'paid' }),

@@ -4,6 +4,9 @@ const User = require('../models/User');
 const Specialty = require('../models/Specialty');
 const Review = require('../models/Review');
 
+// Escape ký tự đặc biệt trước khi đưa vào RegExp để tránh lỗi cú pháp khi tìm kiếm
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Dữ liệu Bác sĩ Hà Nội in-memory để phục vụ API ngay cả khi MongoDB offline
 const HANOI_DOCTORS_DATA = [
   {
@@ -249,8 +252,9 @@ exports.getDoctors = async (req, res, next) => {
         if (specialty.match(/^[0-9a-fA-F]{24}$/)) {
           query.specialtyId = specialty;
         } else {
-          const foundSpec = await Specialty.findOne({ name: new RegExp(specialty, 'i') });
+          const foundSpec = await Specialty.findOne({ name: new RegExp(escapeRegex(specialty), 'i') });
           if (foundSpec) query.specialtyId = foundSpec._id;
+          else query.specialtyId = null;
         }
       }
 
@@ -265,7 +269,7 @@ exports.getDoctors = async (req, res, next) => {
       }
 
       if (search && search.trim() !== '') {
-        const searchRegex = new RegExp(search.trim(), 'i');
+        const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
         const matchedUsers = await User.find({
           role: 'doctor',
           $or: [{ fullName: searchRegex }, { email: searchRegex }]
@@ -289,17 +293,21 @@ exports.getDoctors = async (req, res, next) => {
       const limitNum = Math.max(1, parseInt(limit, 10) || 6);
       const skip = (pageNum - 1) * limitNum;
 
-      const total = await DoctorProfile.countDocuments(query);
-      if (total > 0) {
-        const doctors = await DoctorProfile.find(query)
-          .populate('userId', 'fullName email avatar phone')
-          .populate('specialtyId', 'name icon description')
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(limitNum);
+      const hasDoctorsInDb = (await DoctorProfile.estimatedDocumentCount()) > 0;
+      if (hasDoctorsInDb) {
+        const total = await DoctorProfile.countDocuments(query);
+        const doctors = total > 0
+          ? await DoctorProfile.find(query)
+              .populate('userId', 'fullName email avatar phone')
+              .populate('specialtyId', 'name icon description')
+              .sort(sortOptions)
+              .skip(skip)
+              .limit(limitNum)
+          : [];
 
         return res.status(200).json({
           success: true,
+          source: 'mongodb',
           count: doctors.length,
           total,
           totalPages: Math.ceil(total / limitNum) || 1,
@@ -313,9 +321,11 @@ exports.getDoctors = async (req, res, next) => {
     const result = getMockFilteredDoctors(req.query);
     return res.status(200).json(result);
   } catch (error) {
-    // Luôn trả về danh sách an toàn thay vì sập lỗi 500
-    const result = getMockFilteredDoctors(req.query);
-    return res.status(200).json(result);
+    if (mongoose.connection.readyState !== 1) {
+      const result = getMockFilteredDoctors(req.query);
+      return res.status(200).json(result);
+    }
+    next(error);
   }
 };
 
@@ -327,32 +337,55 @@ exports.getDoctorById = async (req, res, next) => {
     const { id } = req.params;
 
     if (mongoose.connection.readyState === 1) {
-      let doctor = await DoctorProfile.findById(id)
-        .populate('userId', 'fullName email avatar phone')
-        .populate('specialtyId', 'name icon description');
-
-      if (!doctor) {
-        doctor = await DoctorProfile.findOne({ userId: id })
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        let doctor = await DoctorProfile.findById(id)
           .populate('userId', 'fullName email avatar phone')
           .populate('specialtyId', 'name icon description');
+
+        if (!doctor) {
+          doctor = await DoctorProfile.findOne({ userId: id })
+            .populate('userId', 'fullName email avatar phone')
+            .populate('specialtyId', 'name icon description');
+        }
+
+        if (doctor) {
+          const reviews = await Review.find({ doctorId: doctor.userId._id })
+            .populate('patientId', 'fullName avatar')
+            .sort({ createdAt: -1 })
+            .limit(10);
+
+          return res.status(200).json({
+            success: true,
+            data: doctor,
+            reviews
+          });
+        }
+
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin bác sĩ yêu cầu!'
+        });
       }
 
-      if (doctor) {
-        const reviews = await Review.find({ doctorId: doctor.userId._id })
-          .populate('patientId', 'fullName avatar')
-          .sort({ createdAt: -1 })
-          .limit(10);
-
-        return res.status(200).json({
-          success: true,
-          data: doctor,
-          reviews
+      // Hỗ trợ xem chi tiết các mã demo tĩnh (doc_lanhieu...) nếu trùng khớp chính xác
+      const matchedStatic = HANOI_DOCTORS_DATA.find(d => d._id === id);
+      if (!matchedStatic) {
+        return res.status(404).json({
+          success: false,
+          message: 'Mã bác sĩ không hợp lệ hoặc không tồn tại!'
         });
       }
     }
 
-    // Fallback in-memory
-    const foundDoctor = HANOI_DOCTORS_DATA.find(d => d._id === id) || HANOI_DOCTORS_DATA[0];
+    // Fallback in-memory khi MongoDB offline hoặc truy vấn đúng mã tĩnh
+    const foundDoctor = HANOI_DOCTORS_DATA.find(d => d._id === id);
+    if (!foundDoctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thông tin bác sĩ yêu cầu!'
+      });
+    }
+
     const mockReviews = [
       {
         _id: 'rev_1',
@@ -376,12 +409,7 @@ exports.getDoctorById = async (req, res, next) => {
       reviews: mockReviews
     });
   } catch (error) {
-    const fallback = HANOI_DOCTORS_DATA[0];
-    return res.status(200).json({
-      success: true,
-      data: fallback,
-      reviews: []
-    });
+    next(error);
   }
 };
 
