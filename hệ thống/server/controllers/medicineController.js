@@ -1,12 +1,15 @@
 const Medicine = require('../models/Medicine');
 
+// Escape ký tự đặc biệt trước khi đưa vào RegExp để tránh sai biểu thức chính quy
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 exports.getMedicines = async (req, res, next) => {
   try {
     const { search, unit, lowStock } = req.query;
     const filter = {};
 
     if (search && search.trim()) {
-      const keyword = search.trim();
+      const keyword = escapeRegex(search.trim());
       filter.$or = [
         { name: { $regex: keyword, $options: 'i' } },
         { activeIngredient: { $regex: keyword, $options: 'i' } }
@@ -79,8 +82,9 @@ exports.createMedicine = async (req, res, next) => {
       });
     }
 
+    const escapedName = escapeRegex(name.trim());
     const existingMedicine = await Medicine.findOne({
-      name: { $regex: `^${name.trim()}$`, $options: 'i' }
+      name: { $regex: `^${escapedName}$`, $options: 'i' }
     });
 
     if (existingMedicine) {
@@ -143,9 +147,10 @@ exports.updateMedicine = async (req, res, next) => {
     }
 
     if (name && name.trim() && name.trim().toLowerCase() !== medicine.name.toLowerCase()) {
+      const escapedName = escapeRegex(name.trim());
       const duplicate = await Medicine.findOne({
         _id: { $ne: medicine._id },
-        name: { $regex: `^${name.trim()}$`, $options: 'i' }
+        name: { $regex: `^${escapedName}$`, $options: 'i' }
       });
 
       if (duplicate) {
