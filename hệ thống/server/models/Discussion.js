@@ -8,7 +8,7 @@ const commentSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    required: [true, 'Vui lòng nhập nội dung phản hồi'],
     trim: true
   },
   isDoctorAnswer: {
@@ -39,8 +39,20 @@ const discussionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Specialty'
   },
+  specialtyName: {
+    type: String,
+    default: 'Đa khoa'
+  },
+  isAnonymous: {
+    type: Boolean,
+    default: false
+  },
   tags: [String],
   comments: [commentSchema],
+  likes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   views: {
     type: Number,
     default: 0

@@ -5,7 +5,7 @@ const reviewSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointment',
     required: true,
-    unique: true // Mỗi lượt khám chỉ được đánh giá 1 lần
+    unique: true                                         
   },
   patientId: {
     type: mongoose.Schema.Types.ObjectId,

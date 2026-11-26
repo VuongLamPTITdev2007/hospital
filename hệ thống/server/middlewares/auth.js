@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-// Middleware xác thực token JWT
-const verifyToken = (req, res, next) => {
+                                
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
@@ -11,19 +12,27 @@ const verifyToken = (req, res, next) => {
   }
 
   const token = authHeader.split(' ')[1];
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'medcare_super_secret_jwt_key_2026_vibecoding');
-    req.user = decoded; // { id, email, role }
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET || 'medcare_super_secret_jwt_key_2026_vibecoding');
   } catch (error) {
     return res.status(401).json({
       success: false,
       message: 'Phiên đăng nhập đã hết hạn hoặc token không hợp lệ!'
     });
   }
+  try {
+    const user = await User.findById(decoded.id).select('role email fullName');
+    if (!user) return res.status(401).json({ success: false, message: 'Tài khoản không còn tồn tại.' });
+    req.user = { id: String(user._id), role: user.role, email: user.email, fullName: user.fullName };
+    next();
+  } catch (error) {
+    if (error.name === 'CastError') return res.status(401).json({ success: false, message: 'Mã xác thực không hợp lệ.' });
+    next(error);
+  }
 };
 
-// Middleware kiểm tra phân quyền người dùng (RBAC)
+                                                   
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {

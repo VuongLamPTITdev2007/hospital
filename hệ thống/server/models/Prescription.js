@@ -20,7 +20,7 @@ const prescriptionItemSchema = new mongoose.Schema({
     required: true
   },
   dosage: {
-    type: String, // Ví dụ: "Sáng 1 viên, tối 1 viên"
+    type: String,                                    
     required: true
   },
   unitPrice: {
@@ -60,7 +60,7 @@ const prescriptionSchema = new mongoose.Schema({
   },
   isDispensed: {
     type: Boolean,
-    default: false // Dược sĩ bấm xác nhận xuất thuốc -> true
+    default: false                                           
   },
   dispensedAt: {
     type: Date

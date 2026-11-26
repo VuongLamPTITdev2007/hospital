@@ -2,12 +2,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Đăng ký tài khoản
+                    
 exports.register = async (req, res, next) => {
   try {
     const { fullName, email, password, phone, role } = req.body;
 
-    // Kiểm tra email tồn tại
+    if (role && role !== 'patient') {
+      return res.status(403).json({ success: false, message: 'Chỉ tài khoản bệnh nhân được đăng ký công khai. Tài khoản nhân viên do hệ thống cấp.' });
+    }
+
+                             
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -16,7 +20,7 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Mã hóa mật khẩu với bcrypt
+                                 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -25,10 +29,10 @@ exports.register = async (req, res, next) => {
       email,
       password: hashedPassword,
       phone: phone || '',
-      role: role || 'patient'
+      role: 'patient'
     });
 
-    // Tạo JWT token
+                    
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role, fullName: user.fullName },
       process.env.JWT_SECRET || 'medcare_super_secret_jwt_key_2026_vibecoding',
@@ -52,7 +56,7 @@ exports.register = async (req, res, next) => {
   }
 };
 
-// Đăng nhập
+            
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -103,7 +107,7 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// Lấy thông tin tài khoản hiện tại
+                                   
 exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);

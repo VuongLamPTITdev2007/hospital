@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Vui lòng nhập mật khẩu'],
     minlength: [6, 'Mật khẩu phải chứa ít nhất 6 ký tự'],
-    select: false // Mặc định không trả về password trong query
+    select: false                                              
   },
   phone: {
     type: String,

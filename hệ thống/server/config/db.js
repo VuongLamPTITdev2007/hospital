@@ -2,11 +2,15 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/medcare_db');
-    console.log(`[MongoDB] Connected successfully to host: ${conn.connection.host}`);
+    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/medcare_db';
+                                                                     
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 2500
+    });
+    console.log(`[MongoDB] Kết nối CSDL thành công tới: ${conn.connection.host}`);
   } catch (error) {
     console.error(`[MongoDB] Connection error: ${error.message}`);
-    process.exit(1);
+    console.warn('[MongoDB] Không thể lưu dữ liệu khi chưa kết nối cơ sở dữ liệu.');
   }
 };
 

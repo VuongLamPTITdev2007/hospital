@@ -51,7 +51,7 @@ const MODULES = [
 const HomePage = () => {
   return (
     <div className="space-y-12">
-      {/* Hero Section */}
+      {                  }
       <div className="text-center space-y-4 max-w-3xl mx-auto pt-6">
         <span className="inline-block px-4 py-1.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300">
           Bài Tập Lớn Cuối Kỳ – Nhóm 6 Thành Viên
@@ -79,7 +79,7 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* 6 Modules Grid */}
+      {                    }
       <div className="space-y-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">

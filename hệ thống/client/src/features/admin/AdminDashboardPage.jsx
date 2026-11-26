@@ -1,104 +1,22 @@
-import React from 'react';
-import { Shield, TrendingUp, Users, CalendarCheck, DollarSign, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import Button from '../../components/common/Button';
+import Loader from '../../components/common/Loader';
+import { useFetch } from '../../hooks/useFetch';
 
-const REVENUE_BY_SPECIALTY = [
-  { specialty: 'Tim mạch', revenue: 45500000, appointments: 130, percent: 38 },
-  { specialty: 'Nhi khoa', revenue: 32000000, appointments: 105, percent: 27 },
-  { specialty: 'Cơ xương khớp', revenue: 26000000, appointments: 65, percent: 22 },
-  { specialty: 'Đa khoa & Khác', revenue: 15500000, appointments: 52, percent: 13 }
-];
-
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const AdminDashboardPage = () => {
-  return (
-    <div className="space-y-6">
-      {/* Banner */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-        <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 rounded-full text-xs font-semibold mb-2">
-          Phân hệ TV 6: Quản trị Admin & Thống kê Analytics (Aggregation)
-        </span>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-          Bảng Điều Khiển Quản Trị & Báo Cáo Y Tế
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Dữ liệu thống kê doanh thu, lưu lượng khám và quản lý phân quyền tài khoản (RBAC).
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Tổng doanh thu tháng</p>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">119.000.000 đ</h3>
-            <span className="text-[11px] text-emerald-500 font-semibold flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1" /> +15.4% so với tháng trước
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-            <DollarSign className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Tổng ca khám thành công</p>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">352 ca</h3>
-            <span className="text-[11px] text-slate-400 mt-1 block">Tỷ lệ lấp đầy ca: 87.5%</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-950 text-primary-600 flex items-center justify-center">
-            <CalendarCheck className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Bệnh nhân đã đăng ký</p>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">1.420 người</h3>
-            <span className="text-[11px] text-emerald-500 font-semibold mt-1 block">+82 tài khoản mới</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-slate-400 font-medium">Bác sĩ & Dược sĩ</p>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">28 nhân viên</h3>
-            <span className="text-[11px] text-purple-500 font-semibold mt-1 block">RBAC: 4 vai trò</span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
-            <Shield className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Revenue by Specialty Table & Progress */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
-          <Activity className="w-5 h-5 mr-2 text-primary-600" />
-          Báo Cáo Doanh Thu Theo Chuyên Khoa (MongoDB Aggregation Pipeline)
-        </h2>
-
-        <div className="space-y-4">
-          {REVENUE_BY_SPECIALTY.map((item, idx) => (
-            <div key={idx} className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="font-semibold text-slate-700 dark:text-slate-200">{item.specialty} ({item.appointments} ca khám)</span>
-                <span className="font-bold text-primary-600">{item.revenue.toLocaleString('vi-VN')} đ ({item.percent}%)</span>
-              </div>
-              <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary-500 to-primary-700 rounded-full"
-                  style={{ width: `${item.percent}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  const today = localDate(new Date());
+  const [draft, setDraft] = useState({ from: `${today.slice(0, 7)}-01`, to: today });
+  const [filters, setFilters] = useState(draft);
+  const [validation, setValidation] = useState('');
+  const { data, loading, error, refetch } = useFetch(`/admin/analytics?from=${filters.from}&to=${filters.to}`);
+  const report = data?.data;
+  const apply = (event) => { event.preventDefault(); if (!draft.from || !draft.to || draft.from > draft.to) { setValidation('Ngày bắt đầu phải không sau ngày kết thúc.'); return; } setValidation(''); setFilters({ ...draft }); };
+  const cards = report ? [['Phí khám mô phỏng', `${report.summary.simulatedFee.toLocaleString('vi-VN')} đ`], ['Ca khám hoàn tất', report.summary.completed], ['Bệnh nhân', report.summary.patients], ['Bác sĩ và dược sĩ', report.summary.staff]] : [];
+  return <div className="space-y-6"><header className="rounded-2xl border bg-white p-6 dark:bg-slate-800"><h1 className="text-2xl font-bold">Quản trị & Thống kê</h1><p className="mt-2 text-sm text-slate-500">Phí khám dự kiến của các ca hoàn tất có xác nhận cọc demo; không phải doanh thu ngân hàng thực thu. Tài khoản được tính toàn hệ thống, không theo khoảng ngày.</p></header>
+    <form onSubmit={apply} className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4 dark:bg-slate-800"><label className="text-sm">Từ ngày<input className="mt-1 block rounded border p-2 dark:bg-slate-900" type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} /></label><label className="text-sm">Đến ngày<input className="mt-1 block rounded border p-2 dark:bg-slate-900" type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} /></label><Button type="submit">Xem báo cáo</Button></form>
+    {validation && <p role="alert" className="text-red-600">{validation}</p>}
+    {loading ? <Loader text="Đang tải báo cáo..." /> : error ? <div role="alert" className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700"><p>{error}</p><Button variant="outline" onClick={refetch}>Thử lại</Button></div> : report && <><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{cards.map(([label, value]) => <section key={label} className="rounded-xl border bg-white p-5 dark:bg-slate-800"><p className="text-sm text-slate-500">{label}</p><strong className="text-xl">{value}</strong></section>)}</div><section className="rounded-xl border bg-white p-6 dark:bg-slate-800"><h2 className="mb-4 font-bold">Phí khám mô phỏng theo chuyên khoa</h2>{report.specialties.length === 0 ? <p className="text-slate-500">Không có ca phù hợp trong khoảng ngày đã chọn.</p> : <div className="space-y-3">{report.specialties.map((item) => <div key={item.specialty} className="flex flex-wrap justify-between gap-2 border-b pb-2 text-sm"><span>{item.specialty} · {item.appointments} ca</span><strong>{item.simulatedFee.toLocaleString('vi-VN')} đ</strong></div>)}</div>}</section></>}
+  </div>;
 };
-
 export default AdminDashboardPage;
