@@ -3,8 +3,8 @@ import React from 'react';
 const Button = ({
   children,
   type = 'button',
-  variant = 'primary', // 'primary' | 'secondary' | 'danger' | 'outline'
-  size = 'md',        // 'sm' | 'md' | 'lg'
+  variant = 'primary',                                                  
+  size = 'md',                             
   disabled = false,
   loading = false,
   onClick,

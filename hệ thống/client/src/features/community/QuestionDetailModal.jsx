@@ -4,10 +4,10 @@ import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import DoctorAnswerBadge from './DoctorAnswerBadge';
 
-/**
- * Component: QuestionDetailModal
- * Xem toàn bộ chi tiết câu hỏi y tế, danh sách bình luận thảo luận và gửi phản hồi mới
- */
+   
+                                 
+                                                                                       
+   
 const QuestionDetailModal = ({
   isOpen,
   onClose,
@@ -21,7 +21,7 @@ const QuestionDetailModal = ({
 
   if (!question) return null;
 
-  // Lấy chính xác mã định danh MongoDB (_id hoặc id)
+                                                     
   const questionId = question._id || question.id;
 
   const {
@@ -39,7 +39,7 @@ const QuestionDetailModal = ({
 
   const isDoctor = currentUser?.role === 'doctor';
 
-  // Định dạng ngày giờ chuẩn tiếng Việt
+                                        
   const formattedDate = createdAt
     ? new Date(createdAt).toLocaleString('vi-VN', {
         hour: '2-digit',
@@ -50,7 +50,7 @@ const QuestionDetailModal = ({
       })
     : '';
 
-  // Nhận diện phản hồi của bác sĩ (từ doctorAnswer hoặc từ danh sách comments có c.isDoctorAnswer = true)
+                                                                                                          
   const doctorComment = doctorAnswer || comments.find((c) => c.isDoctorAnswer);
   const formattedDoctorAnswer = doctorComment
     ? {
@@ -107,7 +107,7 @@ const QuestionDetailModal = ({
       maxWidth="max-w-3xl"
     >
       <div className="space-y-6">
-        {/* Header thông tin người hỏi */}
+        {                                }
         <div className="space-y-2 border-b border-slate-200 dark:border-slate-700 pb-4">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center space-x-2">
@@ -129,7 +129,7 @@ const QuestionDetailModal = ({
           </p>
         </div>
 
-        {/* Phản hồi chính thức của Bác sĩ nếu có */}
+        {                                           }
         {formattedDoctorAnswer && (
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
@@ -144,7 +144,7 @@ const QuestionDetailModal = ({
           </div>
         )}
 
-        {/* Danh sách các trao đổi khác */}
+        {                                 }
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center">
             <MessageSquare className="w-4 h-4 mr-1.5" />
@@ -186,7 +186,7 @@ const QuestionDetailModal = ({
           )}
         </div>
 
-        {/* Form nhập bình luận */}
+        {                         }
         <form onSubmit={handleSendComment} className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
           {error && (
             <div className="p-2 bg-red-50 text-red-600 rounded-lg text-xs flex items-center">

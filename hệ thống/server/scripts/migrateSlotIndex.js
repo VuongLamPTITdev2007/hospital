@@ -1,4 +1,4 @@
-// Chỉ chạy sau khi đã tạm dừng mọi tiến trình ghi Booking và có phương án phục hồi.
+                                                                                    
 require('dotenv').config();
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,7 +23,7 @@ const run = async () => {
   }
   if ([...counts.values()].some((count) => count > 1)) throw new Error('Có slot hiệu lực trùng sau chuẩn hóa; dừng và xử lý thủ công.');
   const priorIndexes = await collection.indexes();
-  // Chống ghi đè bản sao cũ. Bản sao chứa dữ liệu thật, cần được lưu bảo mật.
+                                                                              
   fs.writeFileSync(backupPath, EJSON.stringify({ database: mongoose.connection.name, collection: 'appointments', timestamp: new Date(), indexes: priorIndexes, records }, { relaxed: false }), { flag: 'wx', mode: 0o600 });
   const changed = records.filter((item) => item.timeSlot !== normalizeSlot(item.timeSlot));
   for (const item of changed) {

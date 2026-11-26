@@ -16,10 +16,10 @@ const SPECIALTY_OPTIONS = [
   'Mắt'
 ];
 
-/**
- * Component: QuestionFormModal
- * Form controlled có bắt lỗi (validation) dùng để đặt câu hỏi mới cho bác sĩ
- */
+   
+                               
+                                                                             
+   
 const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
   const [formData, setFormData] = useState({
     title: '',
@@ -57,7 +57,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Xóa lỗi ngay khi người dùng bắt đầu sửa
+                                              
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: '' }));
     }
@@ -69,7 +69,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
 
     setIsSubmitting(true);
     try {
-      // Phân tách tags từ chuỗi dấu phẩy
+                                         
       const tagList = formData.tags
         .split(',')
         .map((t) => t.trim())
@@ -85,7 +85,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
 
       await onSubmitQuestion(payload);
       
-      // Reset form khi thành công
+                                  
       setFormData({
         title: '',
         specialty: 'Đa khoa',
@@ -126,7 +126,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           </p>
         </div>
 
-        {/* Tiêu đề */}
+        {             }
         <Input
           label="Tiêu đề câu hỏi"
           placeholder="VD: Bé 3 tuổi bị sốt cao kèm phát ban đỏ..."
@@ -136,7 +136,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           required
         />
 
-        {/* Chọn Chuyên khoa */}
+        {                      }
         <div className="space-y-1">
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Chuyên khoa tư vấn <span className="text-red-500">*</span>
@@ -157,7 +157,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           )}
         </div>
 
-        {/* Nội dung chi tiết */}
+        {                       }
         <div className="space-y-1">
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Nội dung chi tiết triệu chứng <span className="text-red-500">*</span>
@@ -182,7 +182,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           )}
         </div>
 
-        {/* Tags */}
+        {          }
         <Input
           label="Từ khóa tìm kiếm (Tags - phân cách bởi dấu phẩy)"
           placeholder="VD: sot-cao, tre-nho, phat-ban"
@@ -191,7 +191,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           helperText="Giúp người khác gặp triệu chứng tương tự dễ dàng tra cứu."
         />
 
-        {/* Đăng ẩn danh */}
+        {                  }
         <div className="flex items-center space-x-2 pt-1">
           <input
             type="checkbox"
@@ -205,7 +205,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
           </label>
         </div>
 
-        {/* Actions */}
+        {             }
         <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-700">
           <Button variant="outline" type="button" onClick={onClose} disabled={isSubmitting}>
             Hủy bỏ

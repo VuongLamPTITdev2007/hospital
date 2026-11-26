@@ -12,9 +12,9 @@ const FALLBACK_SPECIALTIES = [
   { _id: 's8', name: 'Hô hấp - Phổi', description: 'Điều trị hen suyễn, COPD, viêm phổi và ho kéo dài.', icon: 'Stethoscope' }
 ];
 
-// @desc    Lấy danh sách tất cả chuyên khoa
-// @route   GET /api/specialties
-// @access  Public
+                                            
+                                
+                  
 exports.getSpecialties = async (req, res, next) => {
   try {
     if (mongoose.connection.readyState === 1) {
@@ -34,9 +34,9 @@ exports.getSpecialties = async (req, res, next) => {
   }
 };
 
-// @desc    Lấy chi tiết chuyên khoa
-// @route   GET /api/specialties/:id
-// @access  Public
+                                    
+                                    
+                  
 exports.getSpecialtyById = async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Mã chuyên khoa không hợp lệ.' });
@@ -54,9 +54,9 @@ exports.getSpecialtyById = async (req, res, next) => {
   }
 };
 
-// @desc    Tạo chuyên khoa mới
-// @route   POST /api/specialties
-// @access  Private (Admin)
+                               
+                                 
+                           
 exports.createSpecialty = async (req, res, next) => {
   try {
     const { name, description, icon } = req.body;

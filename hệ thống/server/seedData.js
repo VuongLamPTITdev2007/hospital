@@ -8,7 +8,7 @@ const Review = require('./models/Review');
 
 dotenv.config();
 
-// 8 Chuyên khoa y tế phổ biến tại Hà Nội
+                                         
 const SPECIALTIES = [
   { name: 'Tim mạch', description: 'Chẩn đoán và điều trị tăng huyết áp, suy tim, bệnh mạch vành và can thiệp tim mạch.', icon: 'HeartPulse' },
   { name: 'Nhi khoa', description: 'Khám chữa bệnh lý sơ sinh, hô hấp, tiêu hóa và tư vấn dinh dưỡng toàn diện cho trẻ nhỏ.', icon: 'Baby' },
@@ -20,13 +20,13 @@ const SPECIALTIES = [
   { name: 'Hô hấp - Phổi', description: 'Điều trị hen phế quản, COPD, viêm phổi, ho kéo dài và bệnh lý ngưng thở khi ngủ.', icon: 'Stethoscope' }
 ];
 
-// Danh sách Bác sĩ đầu ngành uy tín tại các Bệnh viện lớn ở Hà Nội
+                                                                   
 const HANOI_DOCTORS = [
   {
     name: 'PGS.TS.BS. Nguyễn Lân Hiếu',
     email: 'lanhieu.nguyen@medcare.vn',
     phone: '0912111001',
-    specialtyIndex: 0, // Tim mạch
+    specialtyIndex: 0,            
     degree: 'Phó Giáo sư, Tiến sĩ, Bác sĩ Cao cấp',
     hospital: 'Bệnh viện Đại học Y Hà Nội (Số 1 Tôn Thất Tùng, Đống Đa)',
     consultationFee: 450000,
@@ -35,13 +35,13 @@ const HANOI_DOCTORS = [
     reviewCount: 215,
     avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=350&q=80',
     bio: 'Giám đốc Bệnh viện Đại học Y Hà Nội. Chuyên gia đầu ngành can thiệp tim bẩm sinh và tim mạch can thiệp tại Việt Nam với nhiều năm tu nghiệp tại Pháp và Mỹ.',
-    workingDays: [1, 3, 5] // T2, T4, T6
+    workingDays: [1, 3, 5]              
   },
   {
     name: 'PGS.TS.BS. Nguyễn Tiến Dũng',
     email: 'tiendung.nguyen@medcare.vn',
     phone: '0912111002',
-    specialtyIndex: 1, // Nhi khoa
+    specialtyIndex: 1,            
     degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Nhi',
     hospital: 'Bệnh viện Bạch Mai (Số 78 Giải Phóng, Phương Mai, Đống Đa)',
     consultationFee: 350000,
@@ -50,13 +50,13 @@ const HANOI_DOCTORS = [
     reviewCount: 180,
     avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=350&q=80',
     bio: 'Nguyên Trưởng khoa Nhi - Bệnh viện Bạch Mai. Chuyên gia điều trị viêm phổi nặng, dị ứng, suy dinh dưỡng và kháng sinh đồ nhi khoa.',
-    workingDays: [2, 4, 6] // T3, T5, T7
+    workingDays: [2, 4, 6]              
   },
   {
     name: 'PGS.TS.BS. Nguyễn Vĩnh Ngọc',
     email: 'vinhngoc.nguyen@medcare.vn',
     phone: '0912111003',
-    specialtyIndex: 2, // Cơ xương khớp
+    specialtyIndex: 2,                 
     degree: 'Phó Giáo sư, Tiến sĩ Y khoa',
     hospital: 'Bệnh viện Bạch Mai & Đại học Y Hà Nội',
     consultationFee: 400000,
@@ -71,7 +71,7 @@ const HANOI_DOCTORS = [
     name: 'GS.TS.BS. Đào Văn Long',
     email: 'vanlong.dao@medcare.vn',
     phone: '0912111004',
-    specialtyIndex: 3, // Tiêu hóa
+    specialtyIndex: 3,            
     degree: 'Giáo sư, Tiến sĩ Y học',
     hospital: 'Bệnh viện Đại học Y Hà Nội (Nguyên Giám đốc BV)',
     consultationFee: 500000,
@@ -86,7 +86,7 @@ const HANOI_DOCTORS = [
     name: 'PGS.TS.BS. Nguyễn Văn Liệu',
     email: 'vanlieu.nguyen@medcare.vn',
     phone: '0912111005',
-    specialtyIndex: 4, // Thần kinh
+    specialtyIndex: 4,             
     degree: 'Phó Giáo sư, Bác sĩ Chuyên khoa Thần kinh',
     hospital: 'Bệnh viện Bạch Mai & Đại học Y Hà Nội',
     consultationFee: 400000,
@@ -101,7 +101,7 @@ const HANOI_DOCTORS = [
     name: 'PGS.TS.BS. Phạm Thị Lan',
     email: 'thilan.pham@medcare.vn',
     phone: '0912111006',
-    specialtyIndex: 5, // Da liễu
+    specialtyIndex: 5,           
     degree: 'Phó Giáo sư, Tiến sĩ Da liễu',
     hospital: 'Bệnh viện Da liễu Trung ương (Số 15A Phương Mai, Đống Đa)',
     consultationFee: 350000,
@@ -116,7 +116,7 @@ const HANOI_DOCTORS = [
     name: 'PGS.TS.BS. Vũ Bá Quyết',
     email: 'baquyet.vu@medcare.vn',
     phone: '0912111007',
-    specialtyIndex: 6, // Sản phụ khoa
+    specialtyIndex: 6,                
     degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Sản phụ khoa',
     hospital: 'Bệnh viện Phụ sản Trung ương (Số 43 Tràng Thi, Hoàn Kiếm)',
     consultationFee: 450000,
@@ -131,7 +131,7 @@ const HANOI_DOCTORS = [
     name: 'PGS.TS.BS. Chu Thị Hạnh',
     email: 'thihanh.chu@medcare.vn',
     phone: '0912111008',
-    specialtyIndex: 7, // Hô hấp
+    specialtyIndex: 7,          
     degree: 'Phó Giáo sư, Tiến sĩ Bác sĩ Hô hấp',
     hospital: 'Trung tâm Hô hấp - Bệnh viện Bạch Mai',
     consultationFee: 380000,
@@ -168,7 +168,7 @@ const seedDB = async () => {
     const passwordHash = await bcrypt.hash('123456', salt);
 
     for (const doc of HANOI_DOCTORS) {
-      // Tìm hoặc tạo tài khoản User
+                                    
       let user = await User.findOne({ email: doc.email });
       if (!user) {
         user = await User.create({

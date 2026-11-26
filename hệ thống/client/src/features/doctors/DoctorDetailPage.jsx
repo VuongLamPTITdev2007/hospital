@@ -268,12 +268,12 @@ const DoctorDetailPage = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Nút quay lại */}
+      {                  }
       <Link to="/doctors" className="inline-flex items-center text-xs font-semibold text-slate-500 hover:text-primary-600 transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1.5" /> Quay lại Cổng tra cứu Bác sĩ Hà Nội
       </Link>
 
-      {/* Main Profile Card */}
+      {                       }
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start gap-6">
           <img
@@ -316,7 +316,7 @@ const DoctorDetailPage = () => {
               </div>
             </div>
 
-            {/* Price & Booking Button */}
+            {                            }
             <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-400">Giá khám chuyên gia:</p>
@@ -337,11 +337,11 @@ const DoctorDetailPage = () => {
         </div>
       </div>
 
-      {/* Grid: Bio & Working Schedule */}
+      {                                  }
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Bio & Reviews */}
+        {                                }
         <div className="lg:col-span-2 space-y-6">
-          {/* Bio */}
+          {         }
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-3">
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
               Quá trình đào tạo & Quá trình công tác
@@ -362,7 +362,7 @@ const DoctorDetailPage = () => {
             </div>
           </div>
 
-          {/* Patient Reviews */}
+          {                     }
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
@@ -391,7 +391,7 @@ const DoctorDetailPage = () => {
           </div>
         </div>
 
-        {/* Right Column: Working Schedule Table */}
+        {                                          }
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
           <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
             <Clock className="w-4 h-4 mr-2 text-primary-600" /> Lịch khám chuyên gia theo tuần

@@ -8,7 +8,7 @@ const medicineSchema = new mongoose.Schema({
     trim: true
   },
   activeIngredient: {
-    type: String, // Hoạt chất chính
+    type: String,                   
     default: ''
   },
   unit: {
@@ -29,7 +29,7 @@ const medicineSchema = new mongoose.Schema({
   },
   minStockAlert: {
     type: Number,
-    default: 20 // Cảnh báo khi tồn kho dưới 20
+    default: 20                                
   },
   usageInstructions: {
     type: String,

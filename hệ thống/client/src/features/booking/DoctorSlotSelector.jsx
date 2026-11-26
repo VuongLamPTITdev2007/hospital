@@ -15,7 +15,7 @@ const DoctorSlotSelector = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Tải danh sách bác sĩ khi mount
+                                      
   useEffect(() => {
     let isMounted = true;
     const fetchDoctors = async () => {
@@ -24,7 +24,7 @@ const DoctorSlotSelector = () => {
         const res = await axiosClient.get('/appointments/doctors');
         if (isMounted && res.success && res.data.length > 0) {
           setDoctors(res.data);
-          // Trang chi tiết trả profile; chuyển về cùng dạng dữ liệu Booking.
+                                                                             
           const selectedId = selectedDoctor?.doctorId || selectedDoctor?.userId?._id || selectedDoctor?.userId || selectedDoctor?.id;
           const profileId = selectedDoctor?._id;
           const matched = res.data.find((doctor) => String(doctor.doctorId) === String(selectedId) || String(doctor.doctorProfileId) === String(profileId));
@@ -48,7 +48,7 @@ const DoctorSlotSelector = () => {
     };
   }, [dispatch]);
 
-  // 2. Tải khung giờ slot theo bác sĩ và ngày được chọn
+                                                        
   const fetchSlots = async () => {
     if (!selectedDoctor || !selectedDate || !(selectedDoctor.doctorId || selectedDoctor.id)) return;
     try {
@@ -70,7 +70,7 @@ const DoctorSlotSelector = () => {
     fetchSlots();
   }, [selectedDoctor, selectedDate]);
 
-  // Xử lý chọn slot
+                    
   const handleSlotClick = (slot) => {
     if (slot.isBooked) return;
     dispatch(selectSlot(slot.time));
@@ -81,7 +81,7 @@ const DoctorSlotSelector = () => {
     dispatch(nextStep());
   };
 
-  // Giới hạn ngày chọn: từ hôm nay đến 30 ngày sau
+                                                   
   const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const todayStr = localDate(new Date());
   const maxDate = new Date();
@@ -90,7 +90,7 @@ const DoctorSlotSelector = () => {
 
   return (
     <div className="space-y-6">
-      {/* Chọn Bác sĩ */}
+      {                 }
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center space-x-2">
@@ -157,7 +157,7 @@ const DoctorSlotSelector = () => {
         )}
       </div>
 
-      {/* Chọn Ngày và Khung Giờ Slot */}
+      {                                 }
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center space-x-2">
@@ -167,7 +167,7 @@ const DoctorSlotSelector = () => {
             </h2>
           </div>
 
-          {/* Date Picker & Refresh */}
+          {                           }
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5">
               <Calendar className="w-4 h-4 text-primary-600" />
@@ -191,7 +191,7 @@ const DoctorSlotSelector = () => {
           </div>
         </div>
 
-        {/* Legend chú thích trạng thái */}
+        {                                 }
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <div className="flex items-center space-x-2">
             <div className="w-3.5 h-3.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900" />
@@ -211,7 +211,7 @@ const DoctorSlotSelector = () => {
           </div>
         </div>
 
-        {/* Error message */}
+        {                   }
         {errorMsg && (
           <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center">
             <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
@@ -219,7 +219,7 @@ const DoctorSlotSelector = () => {
           </div>
         )}
 
-        {/* Slot Grid */}
+        {               }
         {loadingSlots ? (
           <div className="py-12 text-center text-sm text-slate-500 flex items-center justify-center space-x-2">
             <RefreshCw className="w-5 h-5 animate-spin text-primary-600" />
@@ -262,7 +262,7 @@ const DoctorSlotSelector = () => {
           </div>
         )}
 
-        {/* Footer Bar */}
+        {                }
         <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <span className="text-xs text-slate-500 block">Lựa chọn hiện tại:</span>

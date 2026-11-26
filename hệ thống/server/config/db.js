@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/medcare_db';
-    // Đặt timeout 2.5s để không treo server nếu máy chưa bật MongoDB
+                                                                     
     const conn = await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 2500
     });

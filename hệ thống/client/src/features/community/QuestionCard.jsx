@@ -2,11 +2,11 @@ import React from 'react';
 import { MessageCircle, Eye, ThumbsUp, UserCircle, Tag, Trash2 } from 'lucide-react';
 import DoctorAnswerBadge from './DoctorAnswerBadge';
 
-/**
- * Component: QuestionCard
- * Thẻ hiển thị một câu hỏi y khoa trong danh sách diễn đàn
- * Bổ sung nút Xóa (DELETE) cho tác giả bài viết hoặc Admin
- */
+   
+                          
+                                                           
+                                                           
+   
 const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser }) => {
   const {
     _id,
@@ -27,7 +27,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
     createdAt
   } = question;
 
-  // Nhận diện phản hồi của bác sĩ (từ doctorAnswer hoặc từ comments có c.isDoctorAnswer = true)
+                                                                                                
   const doctorComment = doctorAnswer || comments.find((c) => c.isDoctorAnswer);
   const formattedDoctorAnswer = doctorComment
     ? {
@@ -44,7 +44,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
       }
     : null;
 
-  // Kiểm tra quyền xóa bài: tác giả hoặc Admin
+                                               
   const currentUserId = currentUser?.id || currentUser?._id;
   const authorUserId = typeof authorId === 'object' ? (authorId?._id || authorId?.id) : authorId;
   const isOwner = Boolean(currentUserId && authorUserId && currentUserId.toString() === authorUserId.toString());
@@ -53,14 +53,14 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
 
   const commentCount = comments.length || (formattedDoctorAnswer ? 1 : 0);
 
-  // Xử lý hiển thị ngày tạo
+                            
   const displayDate = createdAt
     ? (createdAt.includes('T') ? createdAt.split('T')[0] : createdAt)
     : 'Gần đây';
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow space-y-4">
-      {/* Header Info */}
+      {                 }
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500">
@@ -103,7 +103,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
         </div>
       </div>
 
-      {/* Main Content */}
+      {                  }
       <div className="space-y-2 cursor-pointer" onClick={() => onOpenDetail && onOpenDetail(question)}>
         <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors line-clamp-2">
           {title}
@@ -113,7 +113,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
         </p>
       </div>
 
-      {/* Tags */}
+      {          }
       {tags && tags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           {tags.map((tag, idx) => (
@@ -128,7 +128,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
         </div>
       )}
 
-      {/* Doctor Answer Preview */}
+      {                           }
       {formattedDoctorAnswer && (
         <DoctorAnswerBadge
           doctorName={formattedDoctorAnswer.doctorName}
@@ -138,7 +138,7 @@ const QuestionCard = ({ question, onLike, onOpenDetail, onDelete, currentUser })
         />
       )}
 
-      {/* Footer Stats & Actions */}
+      {                            }
       <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-500">
         <div className="flex items-center space-x-4">
           <button

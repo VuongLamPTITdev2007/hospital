@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 
-/**
- * Custom Hook: useCountdown
- * Đếm ngược thời gian (giây), có cleanup setInterval để tránh rò rỉ bộ nhớ.
- */
+   
+                            
+                                                                            
+   
 export const useCountdown = (initialSeconds, onFinish) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
   const [isActive, setIsActive] = useState(false);
@@ -22,7 +22,7 @@ export const useCountdown = (initialSeconds, onFinish) => {
       }
     }
 
-    // Cleanup function bắt buộc khi unmount component
+                                                      
     return () => {
       if (intervalId) clearInterval(intervalId);
     };

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 
 const canReadRecord = (user, record) => user.role === 'admin' || (user.role === 'patient' && String(record.patientId?._id || record.patientId) === user.id) || (user.role === 'doctor' && String(record.doctorId?._id || record.doctorId) === user.id);
 
-// Tạo mới hồ sơ bệnh án điện tử (POST /api/records)
+                                                    
 exports.createMedicalRecord = async (req, res, next) => {
   try {
     const {
@@ -35,7 +35,7 @@ exports.createMedicalRecord = async (req, res, next) => {
     if (appointment.status !== 'in_progress') return res.status(409).json({ success: false, message: 'Chỉ có thể tạo bệnh án khi ca đang khám.' });
     doctorId = appointment.doctorId;
 
-    // Chặn tạo trùng bệnh án cho cùng 1 lịch hẹn
+                                                 
     const existingRecord = await MedicalRecord.findOne({ appointmentId });
     if (existingRecord) {
       return res.status(409).json({
@@ -81,7 +81,7 @@ exports.createMedicalRecord = async (req, res, next) => {
   }
 };
 
-// Lấy danh sách hàng đợi khám bệnh của bác sĩ (GET /api/records/doctor-queue)
+                                                                              
 exports.getDoctorQueue = async (req, res, next) => {
   try {
     const doctorId = req.user?.id;
@@ -103,7 +103,7 @@ exports.getDoctorQueue = async (req, res, next) => {
       .populate('doctorId', 'fullName email')
       .sort({ date: 1, timeSlot: 1 });
 
-    // Kiểm tra lịch hẹn nào đã có bệnh án
+                                          
     const appointmentIds = appointments.map((app) => app._id);
     const existingRecords = await MedicalRecord.find({
       appointmentId: { $in: appointmentIds }
@@ -126,8 +126,8 @@ exports.getDoctorQueue = async (req, res, next) => {
   }
 };
 
-// Chuyển trạng thái ca khám: waiting -> in_progress -> completed
-// PATCH /api/records/appointments/:appointmentId/status
+                                                                 
+                                                        
 exports.updateAppointmentStatus = async (req, res, next) => {
   try {
     const { appointmentId } = req.params;
@@ -149,7 +149,7 @@ exports.updateAppointmentStatus = async (req, res, next) => {
       });
     }
 
-    // Chỉ bác sĩ phụ trách ca khám hoặc admin mới được chuyển trạng thái
+                                                                         
     if (
       req.user?.role === 'doctor' &&
       appointment.doctorId.toString() !== req.user.id
@@ -174,7 +174,7 @@ exports.updateAppointmentStatus = async (req, res, next) => {
   }
 };
 
-// Tra cứu bệnh án theo mã lịch hẹn (GET /api/records/appointment/:appointmentId)
+                                                                                 
 exports.getRecordByAppointment = async (req, res, next) => {
   try {
     const { appointmentId } = req.params;
@@ -203,7 +203,7 @@ exports.getRecordByAppointment = async (req, res, next) => {
   }
 };
 
-// Lấy lịch sử khám bệnh của bệnh nhân (GET /api/records/patient/:patientId)
+                                                                            
 exports.getPatientHistory = async (req, res, next) => {
   try {
     const { patientId } = req.params;
@@ -227,7 +227,7 @@ exports.getPatientHistory = async (req, res, next) => {
   }
 };
 
-// Xem chi tiết bệnh án theo ID (GET /api/records/:id)
+                                                      
 exports.getRecordById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -256,7 +256,7 @@ exports.getRecordById = async (req, res, next) => {
   }
 };
 
-// Cập nhật hồ sơ bệnh án - Chỉ bác sĩ phụ trách ca hoặc admin được sửa (PUT /api/records/:id)
+                                                                                              
 exports.updateMedicalRecord = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -270,7 +270,7 @@ exports.updateMedicalRecord = async (req, res, next) => {
       });
     }
 
-    // Kiểm tra quyền sở hữu: chỉ bác sĩ phụ trách ca khám hoặc admin mới được sửa
+                                                                                  
     if (
       req.user?.role !== 'admin' &&
       record.doctorId.toString() !== req.user?.id
@@ -299,7 +299,7 @@ exports.updateMedicalRecord = async (req, res, next) => {
   }
 };
 
-// Xóa hồ sơ bệnh án - Chỉ bác sĩ phụ trách hoặc admin (DELETE /api/records/:id)
+                                                                                
 exports.deleteMedicalRecord = async (req, res, next) => {
   try {
     const { id } = req.params;

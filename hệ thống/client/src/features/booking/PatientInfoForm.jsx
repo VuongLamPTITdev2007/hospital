@@ -25,7 +25,7 @@ const PatientInfoForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [conflictError, setConflictError] = useState('');
 
-  // Tự động điền thông tin nếu user đăng nhập
+                                              
   useEffect(() => {
     if (user && !formData.fullName) {
       setFormData((prev) => ({
@@ -70,10 +70,10 @@ const PatientInfoForm = () => {
     setSubmitting(true);
 
     try {
-      // Cập nhật thông tin vào Redux store
+                                           
       dispatch(setPatientInfo(formData));
 
-      // Gọi API giữ chỗ 5 phút trên server
+                                           
       const payload = {
         doctorId: selectedDoctor.doctorId || selectedDoctor.id,
         date: selectedDate,
@@ -90,7 +90,7 @@ const PatientInfoForm = () => {
         dispatch(nextStep());
       }
     } catch (err) {
-      // Xử lý mã lỗi 409 Conflict hoặc lỗi khác
+                                                
       setConflictError(err.message || 'Khung giờ này vừa có người giữ chỗ. Vui lòng chọn khung giờ khác!');
     } finally {
       setSubmitting(false);
@@ -99,7 +99,7 @@ const PatientInfoForm = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Tóm tắt ca khám */}
+      {                     }
       <div className="bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs uppercase tracking-wider font-bold text-primary-700 dark:text-primary-300">
@@ -121,7 +121,7 @@ const PatientInfoForm = () => {
         </button>
       </div>
 
-      {/* Cảnh báo Khung giờ đã được đặt nếu có */}
+      {                                           }
       {conflictError && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 rounded-xl flex items-start space-x-3 text-amber-800 dark:text-amber-200 text-sm">
           <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600 mt-0.5" />
@@ -139,7 +139,7 @@ const PatientInfoForm = () => {
         </div>
       )}
 
-      {/* Form thông tin bệnh nhân */}
+      {                              }
       <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
         <div className="flex items-center space-x-2 pb-4 border-b border-slate-100 dark:border-slate-700">
           <User className="w-5 h-5 text-primary-600" />
@@ -225,7 +225,7 @@ const PatientInfoForm = () => {
           <span>Thông tin y tế được mã hóa và bảo mật theo tiêu chuẩn hồ sơ bệnh án điện tử (EHR).</span>
         </div>
 
-        {/* Buttons */}
+        {             }
         <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <Button
             type="button"

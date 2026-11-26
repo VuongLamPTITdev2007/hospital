@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Star } from 'lucide-react';
 
-/**
- * Component: StarRating
- * Hiển thị số sao đánh giá (chế độ xem hoặc tương tác chọn 1-5 sao)
- * @param {number} rating - Điểm số sao hiện tại (1 - 5)
- * @param {number} maxRating - Số sao tối đa (mặc định 5)
- * @param {string} size - Kích thước: 'sm' | 'md' | 'lg'
- * @param {boolean} interactive - Cho phép bấm chọn sao hay chỉ xem
- * @param {Function} onChange - Callback khi người dùng chọn điểm sao
- * @param {boolean} showLabel - Hiển thị nhãn mô tả mức độ hài lòng
- */
+   
+                        
+                                                                    
+                                                        
+                                                         
+                                                        
+                                                                   
+                                                                     
+                                                                   
+   
 const StarRating = ({
   rating = 5,
   maxRating = 5,

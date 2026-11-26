@@ -15,7 +15,7 @@ import AdminDashboardPage from './features/admin/AdminDashboardPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ChatWidget from './features/chatbot/ChatWidget';
 
-// Layout chung bao gồm Navbar và Footer
+                                        
 const MainLayout = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
@@ -35,31 +35,31 @@ const App = () => {
   return (
     <Routes>
       <Route path="/" element={<MainLayout />}>
-        {/* Public Routes */}
+        {                   }
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         
-        {/* Phân hệ TV 1: Danh sách bác sĩ & Chi tiết */}
+        {                                               }
         <Route path="doctors" element={<DoctorListPage />} />
         <Route path="doctors/:id" element={<DoctorDetailPage />} />
         
-        {/* Phân hệ TV 2: Đặt lịch hẹn */}
+        {                                }
         <Route element={<ProtectedRoute allowedRoles={['patient']} />}><Route path="booking" element={<BookingPage />} /></Route>
         
-        {/* Phân hệ TV 3: Bàn làm việc bác sĩ */}
+        {                                       }
         <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}><Route path="examination" element={<DoctorWorkspacePage />} /></Route>
         
-        {/* Phân hệ TV 4: Kho dược phẩm */}
+        {                                 }
         <Route path="pharmacy" element={<PharmacyInventoryPage />} />
         
-        {/* Phân hệ TV 5: Hỏi đáp & Đánh giá */}
+        {                                      }
         <Route path="community" element={<QnAPage />} />
         
-        {/* Phân hệ TV 6: Quản trị Admin */}
+        {                                  }
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}><Route path="admin" element={<AdminDashboardPage />} /></Route>
 
-        {/* 404 Route */}
+        {               }
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

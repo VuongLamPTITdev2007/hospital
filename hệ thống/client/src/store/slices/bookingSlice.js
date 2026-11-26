@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// Mặc định chọn ngày mai để thuận tiện đặt lịch
+                                                
 const getDefaultBookingDate = () => {
   const target = new Date();
   target.setDate(target.getDate() + 1);
@@ -8,7 +8,7 @@ const getDefaultBookingDate = () => {
 };
 
 const initialState = {
-  step: 1, // 1: Chọn bác sĩ & khung giờ -> 2: Thông tin bệnh nhân -> 3: Giữ chỗ & Cọc VietQR -> 4: Thành công
+  step: 1,                                                                                                    
   selectedDoctor: null,
   selectedDate: getDefaultBookingDate(),
   selectedSlot: '',
@@ -21,8 +21,8 @@ const initialState = {
     symptoms: ''
   },
   depositAmount: 50000,
-  holdingInfo: null, // Lưu thông tin phiên giữ chỗ: { appointmentId, bookingCode, holdingExpiresAt, secondsRemaining, vietQrUrl }
-  confirmedBooking: null // Dữ liệu phiếu hẹn sau khi xác nhận cọc thành công
+  holdingInfo: null,                                                                                                              
+  confirmedBooking: null                                                     
 };
 
 const bookingSlice = createSlice({
@@ -31,11 +31,11 @@ const bookingSlice = createSlice({
   reducers: {
     selectDoctor: (state, action) => {
       state.selectedDoctor = action.payload;
-      state.selectedSlot = ''; // Reset slot khi đổi bác sĩ
+      state.selectedSlot = '';                             
     },
     selectDate: (state, action) => {
       state.selectedDate = action.payload;
-      state.selectedSlot = ''; // Reset slot khi đổi ngày
+      state.selectedSlot = '';                           
     },
     selectSlot: (state, action) => {
       state.selectedSlot = action.payload;

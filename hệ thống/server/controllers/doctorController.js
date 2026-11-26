@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Specialty = require('../models/Specialty');
 const Review = require('../models/Review');
 
-// Dữ liệu Bác sĩ Hà Nội in-memory để phục vụ API ngay cả khi MongoDB offline
+                                                                             
 const HANOI_DOCTORS_DATA = [
   {
     _id: 'doc_lanhieu',
@@ -186,7 +186,7 @@ const HANOI_DOCTORS_DATA = [
   }
 ];
 
-// Hàm lọc và phân trang in-memory
+                                  
 const getMockFilteredDoctors = (params) => {
   const { search, specialty, sortBy, page = 1, limit = 6 } = params;
   let filtered = [...HANOI_DOCTORS_DATA];
@@ -225,12 +225,12 @@ const getMockFilteredDoctors = (params) => {
   };
 };
 
-// @desc    Lấy danh sách bác sĩ với Tìm kiếm, Lọc & Phân trang
-// @route   GET /api/doctors
-// @access  Public
+                                                               
+                            
+                  
 exports.getDoctors = async (req, res, next) => {
   try {
-    // Nếu MongoDB đang kết nối
+                               
     if (mongoose.connection.readyState === 1) {
       const {
         search,
@@ -316,9 +316,9 @@ exports.getDoctors = async (req, res, next) => {
   }
 };
 
-// @desc    Lấy chi tiết bác sĩ
-// @route   GET /api/doctors/:id
-// @access  Public
+                               
+                                
+                  
 exports.getDoctorById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -356,9 +356,9 @@ exports.getDoctorById = async (req, res, next) => {
   }
 };
 
-// @desc    Cập nhật hồ sơ bác sĩ
-// @route   PUT /api/doctors/:id
-// @access  Private (Doctor hoặc Admin)
+                                 
+                                
+                                       
 exports.updateDoctorProfile = async (req, res, next) => {
   try {
     const { id } = req.params;

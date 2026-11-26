@@ -14,14 +14,14 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 
-// Định dạng mã ca khám: 8 ký tự cuối viết hoa dạng #CAC2C76F
+                                                             
 const formatAppointmentCode = (rawId) => {
   if (!rawId) return '#MEDCARE';
   const str = String(rawId);
   return '#' + str.slice(-8).toUpperCase();
 };
 
-// Đồng bộ định dạng ngày tháng sang chuẩn Việt Nam DD/MM/YYYY (ví dụ: 26/11/2026)
+                                                                                  
 const formatDateVN = (rawDate) => {
   if (!rawDate) return '';
   const d = new Date(rawDate);
@@ -32,18 +32,18 @@ const formatDateVN = (rawDate) => {
   return `${day}/${month}/${year}`;
 };
 
-/**
- * Component: AppointmentHistory
- * Quản lý tab "Lịch sử khám của tôi" của Bệnh nhân
- * - Hiển thị danh sách ca khám với 3 trạng thái: Đã hoàn thành, Đã đặt lịch, Đã hủy
- * - Lọc theo trạng thái
- * - Nghiệp vụ chống spam: Chỉ ca khám Đã hoàn thành và Chưa đánh giá mới mở nút "Đánh giá bác sĩ"
- * - Khi đã đánh giá: Đổi nút thành "Đã đánh giá" và vô hiệu hóa nút
- */
+   
+                                
+                                                   
+                                                                                    
+                        
+                                                                                                  
+                                                                    
+   
 const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Thống kê nhanh số lượng theo trạng thái
+                                            
   const counts = useMemo(() => {
     return {
       all: appointments.length,
@@ -53,13 +53,13 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
     };
   }, [appointments]);
 
-  // Lọc danh sách ca khám theo trạng thái
+                                          
   const filteredAppointments = useMemo(() => {
     if (statusFilter === 'ALL') return appointments;
     return appointments.filter((a) => a.status === statusFilter);
   }, [appointments, statusFilter]);
 
-  // Cấu hình hiển thị theo từng trạng thái
+                                           
   const renderStatusBadge = (status) => {
     switch (status) {
       case 'completed':
@@ -94,7 +94,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
 
   return (
     <div className="space-y-6">
-      {/* Tiêu đề & Giới thiệu tab */}
+      {                              }
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm">
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center">
@@ -107,7 +107,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
         </div>
       </div>
 
-      {/* Thanh bộ lọc nhanh trạng thái */}
+      {                                   }
       <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
         <div className="flex items-center space-x-1.5 text-xs text-slate-400 mr-2 shrink-0">
           <Filter className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
         </button>
       </div>
 
-      {/* Danh sách các ca khám */}
+      {                           }
       <div className="space-y-4">
         {filteredAppointments.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center space-y-3">
@@ -185,7 +185,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                 key={app.id || app._id}
                 className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow space-y-4"
               >
-                {/* Header ca khám: Mã + Ngày giờ + Trạng thái */}
+                {                                                }
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/60 pb-3.5">
                   <div className="flex items-center space-x-3">
                     <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
@@ -207,7 +207,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                   <div>{renderStatusBadge(app.status)}</div>
                 </div>
 
-                {/* Thông tin bác sĩ và chuyên khoa */}
+                {                                     }
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-start space-x-3">
                     <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 flex items-center justify-center shrink-0">
@@ -226,7 +226,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                     </div>
                   </div>
 
-                  {/* Nút hành động đánh giá */}
+                  {                            }
                   <div className="flex items-center sm:self-center">
                     {isCompleted ? (
                       isReviewed ? (
@@ -259,7 +259,7 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
                   </div>
                 </div>
 
-                {/* Khối chẩn đoán / Ghi chú ca khám */}
+                {                                      }
                 <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-700 space-y-1.5">
                   <div className="flex items-center text-xs font-bold text-slate-600 dark:text-slate-300">
                     <FileText className="w-3.5 h-3.5 mr-1.5 text-primary-600 dark:text-primary-400" />

@@ -6,27 +6,27 @@ const DoctorProfile = require('../models/DoctorProfile');
 const Specialty = require('../models/Specialty');
 const User = require('../models/User');
 
-/**
- * Controller: communityController
- * Phân hệ TV 5: Diễn đàn Hỏi - Đáp Y tế & Đánh giá Bác sĩ
- * Phần 1: CRUD Câu hỏi Diễn đàn (getDiscussions, getDiscussionById, createDiscussion, deleteDiscussion)
- * Phần 2: Bình luận & Toggle Like (addComment, toggleLike)
- * Phần 3: Đánh giá Bác sĩ chống spam 3 lớp & Lịch sử khám (getMyAppointments, createReview, getReviews, getDoctorReviewsById)
- */
+   
+                                  
+                                                          
+                                                                                                        
+                                                           
+                                                                                                                              
+   
 
-// ==================== PHẦN 1: CRUD CÂU HỎI ====================
+                                                                 
 
-// 1. Lấy danh sách câu hỏi cộng đồng (hỗ trợ lọc chuyên khoa, tìm kiếm ranh giới từ tiếng Việt, phân trang)
-// @route   GET /api/discussions
-// @access  Public
+                                                                                                            
+                                
+                  
 exports.getDiscussions = async (req, res, next) => {
   try {
     const { search, specialty, page = 1, limit = 10 } = req.query;
 
     const query = {};
 
-    // Tìm kiếm từ khóa theo ranh giới từ tiếng Việt: (?<![\p{L}\p{N}])...(?![\p{L}\p{N}]) với cờ 'iu'
-    // Đảm bảo tìm 'ho' chỉ khớp từ 'ho' độc lập, không khớp nhầm vào 'cho', 'không', v.v.
+                                                                                                      
+                                                                                          
     if (search && search.trim()) {
       const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const keywordRegex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu');
@@ -37,7 +37,7 @@ exports.getDiscussions = async (req, res, next) => {
       ];
     }
 
-    // Lọc theo chuyên khoa (nếu có và khác 'Tất cả')
+                                                     
     if (specialty && specialty !== 'Tất cả') {
       query.specialtyName = specialty;
     }
@@ -58,7 +58,7 @@ exports.getDiscussions = async (req, res, next) => {
 
     const totalPages = Math.ceil(total / limitNum) || 1;
 
-    // Xử lý dữ liệu trả về: che danh tính nếu người hỏi chọn ẩn danh
+                                                                     
     const formattedDiscussions = discussions.map((doc) => {
       const item = doc.toObject();
       return {
@@ -84,9 +84,9 @@ exports.getDiscussions = async (req, res, next) => {
   }
 };
 
-// 2. Lấy chi tiết 1 câu hỏi y khoa (tự động tăng views)
-// @route   GET /api/discussions/:id
-// @access  Public
+                                                        
+                                    
+                  
 exports.getDiscussionById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -102,7 +102,7 @@ exports.getDiscussionById = async (req, res, next) => {
       });
     }
 
-    // Tự động tăng lượt xem (view count)
+                                         
     discussion.views = (discussion.views || 0) + 1;
     await discussion.save();
 
@@ -123,14 +123,14 @@ exports.getDiscussionById = async (req, res, next) => {
   }
 };
 
-// 3. Đăng câu hỏi tư vấn y khoa mới
-// @route   POST /api/discussions
-// @access  Private (verifyToken)
+                                    
+                                 
+                                 
 exports.createDiscussion = async (req, res, next) => {
   try {
     const { title, content, specialty, specialtyId, tags, isAnonymous } = req.body;
 
-    // Validation phía máy chủ
+                              
     if (!title || title.trim().length < 6) {
       return res.status(400).json({
         success: false,
@@ -145,7 +145,7 @@ exports.createDiscussion = async (req, res, next) => {
       });
     }
 
-    // Tạo câu hỏi mới
+                      
     const newDiscussion = await Discussion.create({
       authorId: req.user.id,
       title: title.trim(),
@@ -178,9 +178,9 @@ exports.createDiscussion = async (req, res, next) => {
   }
 };
 
-// 4. Xóa câu hỏi (Chỉ tác giả câu hỏi hoặc Admin mới có quyền xóa)
-// @route   DELETE /api/discussions/:id
-// @access  Private (verifyToken)
+                                                                   
+                                       
+                                 
 exports.deleteDiscussion = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -194,7 +194,7 @@ exports.deleteDiscussion = async (req, res, next) => {
       });
     }
 
-    // Kiểm tra quyền sở hữu (Ownership Authorization): Chỉ chủ bài viết hoặc Admin mới được xóa
+                                                                                                
     const isOwner = discussion.authorId.toString() === req.user.id.toString();
     const isAdmin = req.user.role === 'admin';
 
@@ -216,11 +216,11 @@ exports.deleteDiscussion = async (req, res, next) => {
   }
 };
 
-// ==================== PHẦN 2: BÌNH LUẬN & LIKE ====================
+                                                                     
 
-// 5. Bình luận / Trả lời câu hỏi (Tự động nhận diện Bác sĩ trả lời)
-// @route   POST /api/discussions/:id/comments
-// @access  Private (verifyToken)
+                                                                    
+                                              
+                                 
 exports.addComment = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -242,7 +242,7 @@ exports.addComment = async (req, res, next) => {
       });
     }
 
-    // Nghiệp vụ quan trọng: Nhận diện phản hồi chuyên môn từ Bác sĩ
+                                                                    
     const isDoctorAnswer = req.user.role === 'doctor';
 
     const newComment = {
@@ -280,9 +280,9 @@ exports.addComment = async (req, res, next) => {
   }
 };
 
-// 6. Thích / Bỏ thích câu hỏi (Toggle Like - Chống like spam nhiều lần)
-// @route   PATCH /api/discussions/:id/like
-// @access  Private (verifyToken)
+                                                                        
+                                           
+                                 
 exports.toggleLike = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -305,11 +305,11 @@ exports.toggleLike = async (req, res, next) => {
 
     let isLiked = false;
     if (existingIndex > -1) {
-      // Đã thích -> Bỏ thích (Unlike)
+                                      
       discussion.likes.splice(existingIndex, 1);
       isLiked = false;
     } else {
-      // Chưa thích -> Thêm lượt thích (Like)
+                                             
       discussion.likes.push(req.user.id);
       isLiked = true;
     }
@@ -327,16 +327,16 @@ exports.toggleLike = async (req, res, next) => {
   }
 };
 
-// ==================== PHẦN 3: ĐÁNH GIÁ BÁC SĨ & LỊCH SỬ KHÁM ====================
+                                                                                   
 
-// 7. Lấy danh sách ca khám của bệnh nhân đang đăng nhập (kèm trạng thái đã đánh giá hay chưa)
-// @route   GET /api/discussions/my-appointments
-// @access  Private (verifyToken)
+                                                                                              
+                                                
+                                 
 exports.getMyAppointments = async (req, res, next) => {
   try {
     const patientId = req.user.id;
 
-    // Tìm tất cả ca khám của bệnh nhân, nạp thông tin bác sĩ
+                                                             
     const appointments = await Appointment.find({ patientId })
       .populate('doctorId', 'fullName avatar role')
       .populate({
@@ -346,14 +346,14 @@ exports.getMyAppointments = async (req, res, next) => {
       })
       .sort({ createdAt: -1 });
 
-    // Lấy danh sách tất cả các đánh giá mà bệnh nhân này đã gửi
+                                                                
     const patientReviews = await Review.find({ patientId }).select('appointmentId rating comment createdAt');
     const reviewedMap = new Map(patientReviews.map((r) => [r.appointmentId.toString(), r]));
     const records = await MedicalRecord.find({ patientId, appointmentId: { $in: appointments.map((app) => app._id) } })
       .select('appointmentId doctorId diagnosis');
     const recordsMap = new Map(records.map((record) => [record.appointmentId.toString(), record]));
 
-    // Format kết quả trả về cho frontend
+                                         
     const formattedAppointments = appointments.map((app) => {
       const isReviewed = reviewedMap.has(app._id.toString());
       const reviewData = reviewedMap.get(app._id.toString()) || null;
@@ -393,14 +393,14 @@ exports.getMyAppointments = async (req, res, next) => {
   }
 };
 
-// 8. Đánh giá Bác sĩ sau buổi khám (Hệ thống chống spam 3 lớp & Tính lại điểm số bác sĩ)
-// @route   POST /api/discussions/reviews
-// @access  Private (verifyToken)
+                                                                                         
+                                         
+                                 
 exports.createReview = async (req, res, next) => {
   try {
     const { appointmentId, rating, comment } = req.body;
 
-    // Validation cơ bản dữ liệu đầu vào
+                                        
     if (!appointmentId) {
       return res.status(400).json({
         success: false,
@@ -423,7 +423,7 @@ exports.createReview = async (req, res, next) => {
       });
     }
 
-    // ========== CHỐNG SPAM LỚP 1: Kiểm tra ca khám tồn tại & thuộc về bệnh nhân gửi request ==========
+                                                                                                        
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) {
       return res.status(404).json({
@@ -439,7 +439,7 @@ exports.createReview = async (req, res, next) => {
       });
     }
 
-    // ========== CHỐNG SPAM LỚP 2: Bắt buộc trạng thái ca khám phải là 'completed' ==========
+                                                                                              
     if (appointment.status !== 'completed') {
       return res.status(400).json({
         success: false,
@@ -452,7 +452,7 @@ exports.createReview = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Ca khám chưa có bệnh án hợp lệ. Vui lòng liên hệ phòng khám.' });
     }
 
-    // ========== CHỐNG SPAM LỚP 3: Chống trùng lặp (1 ca khám chỉ được đánh giá 1 lần) ==========
+                                                                                                  
     const existingReview = await Review.findOne({ appointmentId });
     if (existingReview) {
       return res.status(409).json({
@@ -461,7 +461,7 @@ exports.createReview = async (req, res, next) => {
       });
     }
 
-    // Lưu đánh giá mới vào collection Review
+                                             
     const newReview = await Review.create({
       appointmentId,
       patientId: req.user.id,
@@ -470,13 +470,13 @@ exports.createReview = async (req, res, next) => {
       comment: comment.trim()
     });
 
-    // ========== THUẬT TOÁN: Tự động tính toán lại điểm trung bình cho Bác sĩ ==========
+                                                                                         
     const doctorReviews = await Review.find({ doctorId: appointment.doctorId });
     const reviewCount = doctorReviews.length;
     const totalStars = doctorReviews.reduce((sum, r) => sum + r.rating, 0);
     const averageRating = Number((totalStars / reviewCount).toFixed(1));
 
-    // Khớp đúng trường tham chiếu: Cập nhật vào DoctorProfile qua doctorProfileId hoặc userId (doctorId)
+                                                                                                         
     const profileFilter = appointment.doctorProfileId
       ? { _id: appointment.doctorProfileId }
       : { userId: appointment.doctorId };
@@ -498,7 +498,7 @@ exports.createReview = async (req, res, next) => {
       }
     });
   } catch (error) {
-    // Bắt thêm lỗi trùng lặp từ MongoDB Unique Index nếu có race condition
+                                                                           
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -509,9 +509,9 @@ exports.createReview = async (req, res, next) => {
   }
 };
 
-// 9. Lấy danh sách tất cả đánh giá công khai của phòng khám
-// @route   GET /api/discussions/reviews
-// @access  Public
+                                                            
+                                        
+                  
 exports.getReviews = async (req, res, next) => {
   try {
     const { doctorId, rating } = req.query;
@@ -558,9 +558,9 @@ exports.getReviews = async (req, res, next) => {
   }
 };
 
-// 10. Lấy danh sách đánh giá riêng của 1 bác sĩ cụ thể
-// @route   GET /api/discussions/reviews/doctor/:doctorId
-// @access  Public
+                                                       
+                                                         
+                  
 exports.getDoctorReviewsById = async (req, res, next) => {
   try {
     const { doctorId } = req.params;

@@ -11,7 +11,7 @@ const schemas = [{ type: 'function', function: {
   }, required: ['date'] }
 } }, { type: 'function', function: { name: 'search_doctors', description: 'Tìm bác sĩ và chuyên khoa; dùng khi chưa hỏi giờ khám.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Tên bác sĩ hoặc chuyên khoa, rỗng nếu muốn tất cả' } } } } }];
 
-// The same controller validates slots for manual booking; no direct database writes by the model.
+                                                                                                  
 const callBooking = async (handler, query) => {
   let status = 200; let body;
   await handler({ query }, { status(code) { status = code; return this; }, json(value) { body = value; return this; } }, (error) => { throw error; });

@@ -1,4 +1,4 @@
-// Kiểm tra migration chỉ đọc; không tạo index hoặc sửa database.
+                                                                 
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { ACTIVE_STATUSES, INDEX_NAME, normalizeSlot, validSlot, validDate } = require('../services/slotPolicy');

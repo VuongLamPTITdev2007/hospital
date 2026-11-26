@@ -13,7 +13,7 @@ const doctorProfileSchema = new mongoose.Schema({
     required: [true, 'Bác sĩ phải thuộc một chuyên khoa']
   },
   degree: {
-    type: String, // BS, ThS, TS, BSCKI, BSCKII
+    type: String,                              
     default: 'Bác sĩ Chuyên khoa'
   },
   consultationFee: {
@@ -35,11 +35,11 @@ const doctorProfileSchema = new mongoose.Schema({
   },
   workingHours: [{
     dayOfWeek: {
-      type: Number, // 1: Thứ 2, ..., 7: Chủ nhật
+      type: Number,                              
       required: true
     },
     slots: [{
-      type: String // '08:00-08:30', '08:30-09:00', ...
+      type: String                                     
     }]
   }],
   averageRating: {

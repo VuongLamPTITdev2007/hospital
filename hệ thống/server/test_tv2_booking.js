@@ -6,12 +6,12 @@ const mongoose = require('./node_modules/mongoose');
 const express = require('./node_modules/express');
 const cors = require('./node_modules/cors');
 
-// Khởi tạo app Express mini để test route trực tiếp
+                                                    
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Nạp routes
+             
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/appointments', require('./routes/appointmentRoutes'));
 app.use(require('./middlewares/errorHandler'));
@@ -22,12 +22,12 @@ const PORT = 5566;
 async function runTests() {
   console.log('=== BẮT ĐẦU KIỂM THỬ TÍCH HỢP PHÂN HỆ TV 2 (BOOKING ENGINE & GIỮ CHỖ) ===\n');
 
-  // 1. Kết nối MongoDB
+                       
   console.log('1. Đang kết nối MongoDB...');
   await mongoose.connect(process.env.MONGO_URI);
   console.log('   ✓ Kết nối MongoDB thành công!');
 
-  // 2. Khởi động server test
+                             
   await new Promise((resolve) => {
     server = app.listen(PORT, resolve);
   });
@@ -35,7 +35,7 @@ async function runTests() {
 
   const baseURL = `http://localhost:${PORT}`;
 
-  // Helper hàm fetch bằng http node
+                                    
   const request = async (url, options = {}) => {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
@@ -72,7 +72,7 @@ async function runTests() {
   };
 
   try {
-    // 3. Test GET /api/appointments/doctors
+                                            
     console.log('\n2. Test GET /api/appointments/doctors');
     const docRes = await request(`${baseURL}/api/appointments/doctors`);
     console.log(`   HTTP Status: ${docRes.status}`);
@@ -83,13 +83,13 @@ async function runTests() {
     const targetDoctor = docRes.body.data[0];
     console.log(`   ✓ Chọn bác sĩ test: ${targetDoctor.name} (${targetDoctor.specialty})`);
 
-    // Chọn ngày test trong tương lai (3 ngày sau)
+                                                  
     const testDate = new Date();
     testDate.setDate(testDate.getDate() + 3);
     const testDateStr = testDate.toISOString().split('T')[0];
     const testSlot = '10:00 - 10:30';
 
-    // 4. Test GET /api/appointments/slots
+                                          
     console.log(`\n3. Test GET /api/appointments/slots cho ngày ${testDateStr}`);
     const slotRes = await request(
       `${baseURL}/api/appointments/slots?doctorId=${targetDoctor.doctorId}&date=${testDateStr}`
@@ -99,7 +99,7 @@ async function runTests() {
     const foundSlot = slotRes.body.data.slots.find((s) => s.time.includes('10:00'));
     console.log(`   ✓ Trạng thái slot ban đầu (${testSlot}): isBooked = ${foundSlot.isBooked}, status = ${foundSlot.status}`);
 
-    // 5. Đăng nhập 2 tài khoản bệnh nhân để test Race Condition
+                                                                
     console.log('\n4. Đăng nhập tài khoản bệnh nhân 1');
     let loginRes1 = await request(`${baseURL}/api/auth/login`, {
       method: 'POST',
@@ -107,7 +107,7 @@ async function runTests() {
     });
 
     if (loginRes1.status !== 200) {
-      // Nếu chưa có, tạo tài khoản
+                                   
       await request(`${baseURL}/api/auth/register`, {
         method: 'POST',
         body: JSON.stringify({
@@ -127,7 +127,7 @@ async function runTests() {
     const tokenUser1 = loginRes1.body.token;
     console.log(`   ✓ Đăng nhập Bệnh nhân 1 thành công (ID: ${loginRes1.body.user.id})`);
 
-    // Đăng ký/đăng nhập user 2 để test Race Condition
+                                                      
     let loginRes2 = await request(`${baseURL}/api/auth/login`, {
       method: 'POST',
       body: JSON.stringify({ email: 'benhnhan2@medcare.vn', password: '123456' })
@@ -151,7 +151,7 @@ async function runTests() {
     const tokenUser2 = loginRes2.body.token;
     console.log(`   ✓ Đăng nhập Bệnh nhân 2 thành công (ID: ${loginRes2.body.user.id})`);
 
-    // Dọn dẹp appointment cũ của slot test (nếu có)
+                                                    
     const Appointment = require('./models/Appointment');
     await Appointment.deleteMany({
       doctorId: targetDoctor.doctorId,
@@ -159,7 +159,7 @@ async function runTests() {
       timeSlot: '10:00 - 10:30'
     });
 
-    // 6. Test POST /api/appointments/hold (User 1 giữ chỗ 5 phút)
+                                                                  
     console.log('\n5. Test POST /api/appointments/hold (Bệnh nhân 1 giữ chỗ 5 phút)');
     const holdRes1 = await request(`${baseURL}/api/appointments/hold`, {
       method: 'POST',
@@ -184,7 +184,7 @@ async function runTests() {
       throw new Error(`Giữ chỗ thất bại: ${JSON.stringify(holdRes1.body)}`);
     }
 
-    // 7. Test RACE CONDITION: User 2 cố tình giữ cùng slot đó
+                                                              
     console.log('\n6. Test CHỐNG TRÙNG LỊCH (Race Condition): Bệnh nhân 2 cố tình giữ cùng slot');
     const holdRes2 = await request(`${baseURL}/api/appointments/hold`, {
       method: 'POST',
@@ -207,7 +207,7 @@ async function runTests() {
       throw new Error(`Mong đợi 409 Conflict nhưng nhận được ${holdRes2.status}`);
     }
 
-    // 8. Test POST /api/appointments/:id/confirm (User 1 thanh toán cọc thành công)
+                                                                                    
     console.log('\n7. Test POST /api/appointments/:id/confirm (Bệnh nhân 1 xác nhận cọc)');
     const confirmRes = await request(`${baseURL}/api/appointments/${appointmentId}/confirm`, {
       method: 'POST',
@@ -225,7 +225,7 @@ async function runTests() {
     }
     console.log('   ✓ Xác nhận lịch hẹn và thanh toán cọc thành công!');
 
-    // 9. Test GET /api/appointments/my-appointments (Kiểm tra lịch sử hẹn của user 1)
+                                                                                      
     console.log('\n8. Test GET /api/appointments/my-appointments');
     const myApptRes = await request(`${baseURL}/api/appointments/my-appointments`, {
       headers: { Authorization: `Bearer ${tokenUser1}` }
@@ -235,7 +235,7 @@ async function runTests() {
     const foundMy = myApptRes.body.data.find((a) => a._id === appointmentId);
     console.log(`   ✓ Tìm thấy phiếu hẹn: #${foundMy._id.slice(-6).toUpperCase()} với Bác sĩ ${foundMy.doctorId.fullName}`);
 
-    // Dọn dẹp bản ghi test
+                           
     await Appointment.findByIdAndDelete(appointmentId);
     console.log('\n   ✓ Dọn dẹp bản ghi test thành công, trả database về trạng thái sạch.');
 

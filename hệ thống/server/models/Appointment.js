@@ -17,11 +17,11 @@ const appointmentSchema = new mongoose.Schema({
     ref: 'DoctorProfile'
   },
   date: {
-    type: String, // YYYY-MM-DD
+    type: String,              
     required: [true, 'Vui lòng chọn ngày khám']
   },
   timeSlot: {
-    type: String, // '08:00-08:30'
+    type: String,                 
     required: [true, 'Vui lòng chọn khung giờ khám']
   },
   status: {
@@ -31,7 +31,7 @@ const appointmentSchema = new mongoose.Schema({
   },
   holdingExpiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 5 * 60 * 1000) // 5 phút đếm ngược
+    default: () => new Date(Date.now() + 5 * 60 * 1000)                    
   },
   patientName: {
     type: String,
@@ -51,7 +51,7 @@ const appointmentSchema = new mongoose.Schema({
   },
   depositAmount: {
     type: Number,
-    default: 50000 // Tiền cọc giữ chỗ 50.000 VNĐ
+    default: 50000                               
   },
   paymentStatus: {
     type: String,
@@ -63,7 +63,7 @@ const appointmentSchema = new mongoose.Schema({
   autoIndex: false
 });
 
-// Đảm bảo không trùng lịch: 1 bác sĩ không thể có 2 ca trùng ngày & timeSlot (ngoại trừ ca đã cancelled)
+                                                                                                         
 appointmentSchema.index(
   { doctorId: 1, date: 1, timeSlot: 1 },
   indexOptions

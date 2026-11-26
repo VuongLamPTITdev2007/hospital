@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import axiosClient from '../../api/axiosClient';
 
-// Dữ liệu mẫu dùng khi chưa kết nối database hoặc chưa có lịch hẹn trong ngày
+                                                                              
 const FALLBACK_PATIENTS = [
   {
     _id: 'app_demo_01',
@@ -64,7 +64,7 @@ const FALLBACK_PATIENTS = [
   }
 ];
 
-// Chuẩn hóa tiếng Việt (bỏ dấu & viết thường) để tìm được cả "Thùy", "Thuỳ" lẫn "thuy"
+                                                                                       
 const normalizeText = (str = '') =>
   str
     .normalize('NFD')
@@ -79,16 +79,16 @@ const DoctorWorkspacePage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  // State danh sách hàng đợi khám
+                                  
   const [patients, setPatients] = useState([]);
   const [activePatient, setActivePatient] = useState(null);
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Trì hoãn từ khóa tìm kiếm 350ms để tránh lọc lại liên tục mỗi lần gõ phím
+                                                                              
   const debouncedSearch = useDebounce(searchTerm, 350);
 
-  // State các trường của form bệnh án điện tử (controlled inputs)
+                                                                  
   const [symptoms, setSymptoms] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [medicalHistory, setMedicalHistory] = useState('');
@@ -96,18 +96,18 @@ const DoctorWorkspacePage = () => {
   const [attachedImages, setAttachedImages] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  // State xử lý lưu, chuyển trạng thái và thông báo
+                                                    
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // State Modal lịch sử khám cũ và Modal phóng to ảnh xét nghiệm
+                                                                 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [patientHistory, setPatientHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Lấy danh sách bệnh nhân chờ khám từ server
+                                               
   const fetchDoctorQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
@@ -132,7 +132,7 @@ const DoctorWorkspacePage = () => {
     if (isMounted) {
       fetchDoctorQueue();
     }
-    // Cleanup tránh cập nhật state khi component đã unmount
+                                                            
     return () => {
       isMounted = false;
     };
@@ -145,7 +145,7 @@ const DoctorWorkspacePage = () => {
     setStatusMessage(null);
   };
 
-  // Tính nhanh thống kê ca khám trong ngày bằng useMemo
+                                                        
   const stats = useMemo(() => {
     const total = patients.length;
     const waiting = patients.filter((p) => p.status === 'waiting' || p.status === 'confirmed').length;
@@ -155,7 +155,7 @@ const DoctorWorkspacePage = () => {
     return { total, waiting, inProgress, completed, rate };
   }, [patients]);
 
-  // Lọc danh sách bệnh nhân theo từ khóa đã debounce (hỗ trợ tiếng Việt không dấu & khác kiểu bỏ dấu)
+                                                                                                      
   const filteredPatients = useMemo(() => {
     const term = normalizeText(debouncedSearch);
     if (!term) return patients;
@@ -167,7 +167,7 @@ const DoctorWorkspacePage = () => {
     });
   }, [patients, debouncedSearch]);
 
-  // Chuyển trạng thái ca khám từ Chờ khám (waiting) sang Đang khám (in_progress)
+                                                                                 
   const handleStartExamination = async () => {
     if (!activePatient) return;
     const targetId = activePatient._id || activePatient.appointmentId;
@@ -194,7 +194,7 @@ const DoctorWorkspacePage = () => {
     }
   };
 
-  // Lưu hồ sơ bệnh án điện tử (POST /api/records)
+                                                  
   const handleSaveRecord = async (e) => {
     e.preventDefault();
     if (!activePatient) { setStatusMessage({ type: 'error', text: 'Vui lòng chọn lịch khám.' }); return; }
@@ -245,7 +245,7 @@ const DoctorWorkspacePage = () => {
     }
   };
 
-  // Xem lịch sử các lần khám trước của bệnh nhân
+                                                 
   const handleViewPatientHistory = async () => {
     const pId = activePatient?.patientId?._id || activePatient?.patientId;
     if (!pId) return;
@@ -266,7 +266,7 @@ const DoctorWorkspacePage = () => {
     }
   };
 
-  // Chọn file ảnh kết quả xét nghiệm từ máy tính và xem trước
+                                                              
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -304,7 +304,7 @@ const DoctorWorkspacePage = () => {
     setAttachedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Chuyển thông tin bệnh nhân sang phân hệ Kê đơn thuốc (TV4)
+                                                               
   const handleForwardToPharmacy = async () => {
     if (!activePatient?.hasMedicalRecord) { setStatusMessage({ type: 'error', text: 'Hãy lưu bệnh án trước khi kê đơn.' }); return; }
     try {
@@ -326,7 +326,7 @@ const DoctorWorkspacePage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header & Thống kê ca trực */}
+      {                               }
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -359,7 +359,7 @@ const DoctorWorkspacePage = () => {
           </Button>
         </div>
 
-        {/* Thống kê ca khám trong ngày */}
+        {                                 }
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
           <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
             <span className="text-xs text-slate-500">Tổng ca khám</span>
@@ -383,7 +383,7 @@ const DoctorWorkspacePage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Cột trái: Hàng đợi bệnh nhân */}
+        {                                  }
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
@@ -473,7 +473,7 @@ const DoctorWorkspacePage = () => {
           </div>
         </div>
 
-        {/* Cột phải: Form lập hồ sơ bệnh án điện tử */}
+        {                                              }
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700 gap-3">
             <div>
@@ -602,7 +602,7 @@ const DoctorWorkspacePage = () => {
               />
             </div>
 
-            {/* Upload và xem trước ảnh kết quả xét nghiệm / siêu âm */}
+            {                                                          }
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -704,7 +704,7 @@ const DoctorWorkspacePage = () => {
         </div>
       </div>
 
-      {/* Modal Lịch sử khám bệnh */}
+      {                             }
       <Modal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
@@ -750,7 +750,7 @@ const DoctorWorkspacePage = () => {
         )}
       </Modal>
 
-      {/* Modal xem phóng to ảnh xét nghiệm */}
+      {                                       }
       <Modal
         isOpen={!!previewImage}
         onClose={() => setPreviewImage(null)}

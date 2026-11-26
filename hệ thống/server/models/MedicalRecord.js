@@ -34,7 +34,7 @@ const medicalRecordSchema = new mongoose.Schema({
     default: ''
   },
   attachedImages: [{
-    type: String // URL ảnh siêu âm / kết quả xét nghiệm
+    type: String                                        
   }],
   prescriptionId: {
     type: mongoose.Schema.Types.ObjectId,

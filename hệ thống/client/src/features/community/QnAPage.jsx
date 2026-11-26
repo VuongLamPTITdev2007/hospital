@@ -23,7 +23,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useAuth } from '../../context/AuthContext';
 import axiosClient from '../../api/axiosClient';
 
-// Import các component con của phân hệ community
+                                                 
 import StarRating from './StarRating';
 import QuestionCard from './QuestionCard';
 import QuestionFormModal from './QuestionFormModal';
@@ -43,51 +43,51 @@ const SPECIALTY_FILTERS = [
   'Tiêu hóa - Gan mật'
 ];
 
-/**
- * Phân hệ TV 5: Diễn đàn Hỏi - Đáp Y tế & Đánh giá Bác sĩ
- * Kết nối Full-Stack 100% với MongoDB Atlas qua axiosClient:
- * 1. Tab "Diễn đàn Hỏi - Đáp": GET/POST/DELETE câu hỏi, PATCH Like, POST bình luận, phân trang, tìm kiếm mượt mà.
- * 2. Tab "Đánh giá Bác sĩ": GET/POST đánh giá, tính điểm trung bình từ MongoDB.
- * 3. Tab "Lịch sử khám của tôi": GET ca khám thật từ MongoDB, kiểm tra quyền và khóa nút khi đã đánh giá.
- */
+   
+                                                          
+                                                             
+                                                                                                                  
+                                                                                
+                                                                                                          
+   
 const QnAPage = () => {
   const { user, isAuthenticated } = useAuth();
 
-  // State tab chuyển đổi: 'qna' | 'reviews' | 'history'
+                                                        
   const [activeTab, setActiveTab] = useState('qna');
 
-  // State dữ liệu thực tế từ MongoDB Atlas (không dùng mock fallback)
+                                                                      
   const [questions, setQuestions] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [appointments, setAppointments] = useState([]);
 
-  // State trạng thái tải dữ liệu và lỗi
+                                        
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
   const isInitialLoadedRef = useRef(false);
 
-  // State phân trang cho diễn đàn hỏi đáp
+                                          
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
 
-  // State tìm kiếm và lọc trong tab QnA
+                                        
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [selectedSpecialty, setSelectedSpecialty] = useState('Tất cả');
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'doctor_answered' | 'unanswered'
+  const [filterMode, setFilterMode] = useState('all');                                            
 
-  // State quản lý Modals
+                         
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [selectedDoctorForReview, setSelectedDoctorForReview] = useState(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [selectedQuestionForDetail, setSelectedQuestionForDetail] = useState(null);
 
-  // ==================== CÁC HÀM GỌI API BACKEND (axiosClient) ====================
+                                                                                    
 
-  // 1. Tải danh sách câu hỏi từ MongoDB (kèm phân trang & tìm kiếm mượt không chớp)
+                                                                                    
   const fetchQuestions = useCallback(async (page = 1, isSilent = false) => {
     if (isSilent) {
       setIsSearching(true);
@@ -123,7 +123,7 @@ const QnAPage = () => {
     }
   }, [debouncedSearch, selectedSpecialty]);
 
-  // 2. Tải danh sách đánh giá bác sĩ từ MongoDB
+                                                
   const fetchReviews = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -139,7 +139,7 @@ const QnAPage = () => {
     }
   }, []);
 
-  // 3. Tải lịch sử ca khám của tôi từ MongoDB
+                                              
   const fetchMyAppointments = useCallback(async () => {
     if (!isAuthenticated) {
       setAppointments([]);
@@ -159,7 +159,7 @@ const QnAPage = () => {
     }
   }, [isAuthenticated]);
 
-  // Khi debouncedSearch hoặc selectedSpecialty thay đổi -> tự động reset về trang 1
+                                                                                    
   useEffect(() => {
     if (activeTab === 'qna') {
       const isSilent = isInitialLoadedRef.current;
@@ -168,7 +168,7 @@ const QnAPage = () => {
     }
   }, [debouncedSearch, selectedSpecialty, fetchQuestions, activeTab]);
 
-  // Tự động tải dữ liệu theo tab đang được kích hoạt
+                                                     
   useEffect(() => {
     if (activeTab === 'qna') {
       if (!isInitialLoadedRef.current) {
@@ -181,21 +181,21 @@ const QnAPage = () => {
     }
   }, [activeTab, fetchReviews, fetchMyAppointments]);
 
-  // Xử lý chuyển trang đơn giản
+                                
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
     setCurrentPage(newPage);
     fetchQuestions(newPage, true);
   };
 
-  // ==================== CÁC HÀNH ĐỘNG TƯƠNG TÁC (MUTATIONS) ====================
+                                                                                  
 
-  // Đánh giá luôn bắt đầu từ ca khám thuộc tài khoản hiện tại.
+                                                               
   const handleOpenGenericReview = () => {
     setActiveTab('history');
   };
 
-  // Mở modal đánh giá gắn với 1 ca khám cụ thể (khóa cứng bác sĩ)
+                                                                  
   const handleOpenReviewForAppointment = (appointment) => {
     setSelectedDoctorForReview({
       id: appointment.doctorId,
@@ -207,7 +207,7 @@ const QnAPage = () => {
     setIsReviewModalOpen(true);
   };
 
-  // Đăng câu hỏi tư vấn mới lên MongoDB
+                                        
   const handleCreateQuestion = async (formData) => {
     try {
       const res = await axiosClient.post('/discussions', formData);
@@ -221,7 +221,7 @@ const QnAPage = () => {
     }
   };
 
-  // Thích / Bỏ thích câu hỏi (Toggle Like lưu vào MongoDB)
+                                                           
   const handleLikeQuestion = async (questionId) => {
     if (!isAuthenticated) {
       alert('Vui lòng đăng nhập để bấm thích câu hỏi này!');
@@ -250,7 +250,7 @@ const QnAPage = () => {
     }
   };
 
-  // Xóa câu hỏi (DELETE /api/discussions/:id)
+                                              
   const handleDeleteQuestion = async (questionId) => {
     try {
       const res = await axiosClient.delete(`/discussions/${questionId}`);
@@ -265,7 +265,7 @@ const QnAPage = () => {
     }
   };
 
-  // Mở modal xem chi tiết câu hỏi & tự động đồng bộ lượt xem từ MongoDB
+                                                                        
   const handleOpenDetail = async (question) => {
     setSelectedQuestionForDetail(question);
     const qId = question._id || question.id;
@@ -275,7 +275,7 @@ const QnAPage = () => {
       const res = await axiosClient.get(`/discussions/${qId}`);
       if (res.success && res.discussion) {
         setSelectedQuestionForDetail(res.discussion);
-        // Cập nhật lượt xem và bình luận mới nhất vào danh sách câu hỏi
+                                                                        
         setQuestions((prev) =>
           prev.map((q) =>
             (q._id || q.id) === qId
@@ -293,7 +293,7 @@ const QnAPage = () => {
     }
   };
 
-  // Gửi bình luận trao đổi lên MongoDB
+                                       
   const handleAddComment = async ({ questionId, content }) => {
     try {
       const res = await axiosClient.post(`/discussions/${questionId}/comments`, { content });
@@ -324,15 +324,15 @@ const QnAPage = () => {
     }
   };
 
-  // Gửi đánh giá Bác sĩ lên MongoDB (Chống spam 3 lớp & Tính lại điểm số)
+                                                                          
   const handleSubmitReview = async (reviewPayload) => {
     try {
       const res = await axiosClient.post('/discussions/reviews', reviewPayload);
       if (res.success) {
-        // Cập nhật lại danh sách đánh giá từ MongoDB
+                                                     
         await fetchReviews();
 
-        // Đổi trạng thái ca khám thành "Đã đánh giá" để vô hiệu hóa nút
+                                                                        
         const appCode = reviewPayload.appointmentId || selectedAppointmentId;
         if (appCode) {
           setAppointments((prev) =>
@@ -344,7 +344,7 @@ const QnAPage = () => {
           );
         }
 
-        // Tự động chuyển người dùng sang tab "Đánh giá Bác sĩ"
+                                                               
         setActiveTab('reviews');
         setSelectedDoctorForReview(null);
         setSelectedAppointmentId(null);
@@ -354,7 +354,7 @@ const QnAPage = () => {
     }
   };
 
-  // Lọc câu hỏi ở client theo chế độ có BS trả lời
+                                                   
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
       let matchesFilterMode = true;
@@ -371,7 +371,7 @@ const QnAPage = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Banner Giới Thiệu Phân Hệ */}
+      {                               }
       <div className="relative overflow-hidden bg-gradient-to-br from-white via-sky-50/40 to-blue-50/60 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-700 p-6 sm:p-8 shadow-sm">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
@@ -412,9 +412,9 @@ const QnAPage = () => {
         </div>
       </div>
 
-      {/* Điều Hướng 3 Tabs */}
+      {                       }
       <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto no-scrollbar">
-        {/* Tab 1: Diễn đàn Hỏi - Đáp */}
+        {                               }
         <button
           type="button"
           onClick={() => setActiveTab('qna')}
@@ -437,7 +437,7 @@ const QnAPage = () => {
           </span>
         </button>
 
-        {/* Tab 2: Đánh giá Bác sĩ */}
+        {                            }
         <button
           type="button"
           onClick={() => setActiveTab('reviews')}
@@ -460,7 +460,7 @@ const QnAPage = () => {
           </span>
         </button>
 
-        {/* Tab 3: Lịch sử khám của tôi */}
+        {                                 }
         <button
           type="button"
           onClick={() => setActiveTab('history')}
@@ -486,7 +486,7 @@ const QnAPage = () => {
         </button>
       </div>
 
-      {/* Thông báo lỗi nếu có */}
+      {                          }
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-center justify-between text-xs sm:text-sm text-red-600 dark:text-red-300">
           <div className="flex items-center space-x-2">
@@ -507,20 +507,20 @@ const QnAPage = () => {
         </div>
       )}
 
-      {/* Loading Spinner khi đang tải dữ liệu */}
+      {                                          }
       {loading && (
         <div className="py-12 flex justify-center">
           <Loader size="lg" text="Đang đồng bộ dữ liệu từ MongoDB Atlas..." />
         </div>
       )}
 
-      {/* ==================== NỘI DUNG TAB 1: DIỄN ĐÀN HỎI - ĐÁP ==================== */}
+      {                                                                                  }
       {!loading && activeTab === 'qna' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Thanh Tìm Kiếm & Bộ Lọc Nâng Cao */}
+          {                                      }
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-              {/* Ô Tìm Kiếm Có Áp Dụng useDebounce */}
+              {                                       }
               <div className="sm:col-span-8 relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -535,7 +535,7 @@ const QnAPage = () => {
                 )}
               </div>
 
-              {/* Lọc Trạng Thái Phản Hồi */}
+              {                             }
               <div className="sm:col-span-4 flex items-center space-x-2">
                 <Filter className="w-4 h-4 text-slate-400 shrink-0" />
                 <select
@@ -550,7 +550,7 @@ const QnAPage = () => {
               </div>
             </div>
 
-            {/* Danh Mục Tabs Chuyên Khoa */}
+            {                               }
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
               <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1">Chuyên khoa:</span>
               {SPECIALTY_FILTERS.map((specialty) => (
@@ -570,7 +570,7 @@ const QnAPage = () => {
             </div>
           </div>
 
-          {/* Danh Sách Câu Hỏi Feed */}
+          {                            }
           <div className={`space-y-4 transition-opacity duration-200 ${isSearching ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
             <div className="flex items-center justify-between px-1">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center">
@@ -624,7 +624,7 @@ const QnAPage = () => {
                   />
                 ))}
 
-                {/* Thanh chuyển trang (Pagination) */}
+                {                                     }
                 {totalPages > 1 && (
                   <div className="flex items-center justify-center space-x-3 pt-4 pb-2 border-t border-slate-200 dark:border-slate-700">
                     <Button
@@ -660,14 +660,14 @@ const QnAPage = () => {
         </div>
       )}
 
-      {/* ==================== NỘI DUNG TAB 2: ĐÁNH GIÁ BÁC SĨ ==================== */}
+      {                                                                               }
       {!loading && activeTab === 'reviews' && (
         <div className="animate-fade-in">
           <DoctorReviewsTab reviews={reviews} />
         </div>
       )}
 
-      {/* ==================== NỘI DUNG TAB 3: LỊCH SỬ KHÁM CỦA TÔI ==================== */}
+      {                                                                                    }
       {!loading && activeTab === 'history' && (
         <div className="animate-fade-in">
           {!isAuthenticated ? (
@@ -696,14 +696,14 @@ const QnAPage = () => {
         </div>
       )}
 
-      {/* Modal Đặt Câu Hỏi */}
+      {                       }
       <QuestionFormModal
         isOpen={isQuestionModalOpen}
         onClose={() => setIsQuestionModalOpen(false)}
         onSubmitQuestion={handleCreateQuestion}
       />
 
-      {/* Modal Đánh Giá Bác Sĩ (Chống spam) */}
+      {                                        }
       <ReviewModal
         isOpen={isReviewModalOpen}
         onClose={() => {
@@ -716,7 +716,7 @@ const QnAPage = () => {
         appointmentId={selectedAppointmentId}
       />
 
-      {/* Modal Chi Tiết Thảo Luận & Bình Luận */}
+      {                                          }
       <QuestionDetailModal
         isOpen={Boolean(selectedQuestionForDetail)}
         onClose={() => setSelectedQuestionForDetail(null)}

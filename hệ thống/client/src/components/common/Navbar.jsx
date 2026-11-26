@@ -26,7 +26,7 @@ const Navbar = () => {
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {          }
           <Link to="/" className="flex items-center space-x-2.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-md shadow-primary-500/20">
               <Stethoscope className="w-6 h-6" />
@@ -41,7 +41,7 @@ const Navbar = () => {
             </div>
           </Link>
 
-          {/* Nav Links */}
+          {               }
           <nav className="hidden md:flex items-center space-x-1">
             <NavLink to="/doctors" className={navLinkClass}>
               <Stethoscope className="w-4 h-4 mr-1.5" /> Bác sĩ (TV1)
@@ -63,9 +63,9 @@ const Navbar = () => {
             </NavLink>
           </nav>
 
-          {/* Right Actions */}
+          {                   }
           <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Theme Toggle */}
+            {                  }
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

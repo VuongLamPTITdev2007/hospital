@@ -1,14 +1,14 @@
 import React from 'react';
 import { CheckCircle2, Stethoscope } from 'lucide-react';
 
-/**
- * Component: DoctorAnswerBadge
- * Hiển thị khối phản hồi y khoa chính thức từ Bác sĩ chuyên khoa
- * @param {string} doctorName - Họ tên bác sĩ
- * @param {string} specialty - Chuyên khoa
- * @param {string} answer - Nội dung tư vấn của bác sĩ
- * @param {string} date - Ngày phản hồi
- */
+   
+                               
+                                                                 
+                                             
+                                          
+                                                      
+                                       
+   
 const DoctorAnswerBadge = ({
   doctorName = 'Bác sĩ chuyên khoa',
   specialty = '',

@@ -21,7 +21,7 @@ import {
   MapPin
 } from 'lucide-react';
 
-// Dữ liệu Bác sĩ uy tín thực tế tại các Bệnh viện lớn ở Hà Nội
+                                                               
 const HANOI_FALLBACK_DOCTORS = [
   {
     _id: 'doc_lanhieu',
@@ -178,10 +178,10 @@ const DoctorListPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Áp dụng Custom Hook useDebounce cho ô tìm kiếm (Tiêu chí 4)
+                                                                
   const debouncedSearch = useDebounce(searchTerm, 400);
 
-  // 1. Tải danh mục Chuyên khoa
+                                
   useEffect(() => {
     const fetchSpecialties = async () => {
       try {
@@ -198,7 +198,7 @@ const DoctorListPage = () => {
     fetchSpecialties();
   }, []);
 
-  // 2. Tải danh sách Bác sĩ từ Server API hoặc Fallback
+                                                        
   const fetchDoctors = useCallback(async () => {
     setLoading(true);
     try {
@@ -239,13 +239,13 @@ const DoctorListPage = () => {
       filtered = filtered.filter(d => d.specialtyId.name === selectedSpecialty);
     }
 
-    // Sort
+           
     if (sortBy === 'fee_asc') filtered.sort((a, b) => a.consultationFee - b.consultationFee);
     else if (sortBy === 'fee_desc') filtered.sort((a, b) => b.consultationFee - a.consultationFee);
     else if (sortBy === 'exp_desc') filtered.sort((a, b) => b.experienceYears - a.experienceYears);
     else filtered.sort((a, b) => b.averageRating - a.averageRating);
 
-    // Pagination
+                 
     const limit = 6;
     const pages = Math.ceil(filtered.length / limit) || 1;
     const startIndex = (currentPage - 1) * limit;
@@ -260,7 +260,7 @@ const DoctorListPage = () => {
     fetchDoctors();
   }, [fetchDoctors]);
 
-  // Điều hướng nhanh sang module Đặt lịch của TV 2
+                                                   
   const handleQuickBook = (doctor) => {
     dispatch(selectDoctor(doctor));
     navigate('/booking');
@@ -268,7 +268,7 @@ const DoctorListPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Banner giới thiệu Phân hệ 1 với Bác sĩ Hà Nội */}
+      {                                                   }
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary-800 via-primary-700 to-sky-700 p-6 sm:p-10 text-white shadow-xl shadow-primary-500/10">
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center space-x-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider">
@@ -284,9 +284,9 @@ const DoctorListPage = () => {
           </p>
         </div>
 
-        {/* Thanh tìm kiếm & bộ lọc */}
+        {                             }
         <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-12 gap-3">
-          {/* Ô tìm kiếm */}
+          {                }
           <div className="sm:col-span-6 relative">
             <Search className="absolute left-3.5 top-3 w-5 h-5 text-slate-400" />
             <input
@@ -301,7 +301,7 @@ const DoctorListPage = () => {
             />
           </div>
 
-          {/* Chọn chuyên khoa */}
+          {                      }
           <div className="sm:col-span-3">
             <select
               value={selectedSpecialty}
@@ -320,7 +320,7 @@ const DoctorListPage = () => {
             </select>
           </div>
 
-          {/* Sắp xếp */}
+          {             }
           <div className="sm:col-span-3">
             <select
               value={sortBy}
@@ -336,7 +336,7 @@ const DoctorListPage = () => {
         </div>
       </div>
 
-      {/* Specialty Quick Filter Pills */}
+      {                                  }
       <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           onClick={() => { setSelectedSpecialty('all'); setCurrentPage(1); }}
@@ -363,7 +363,7 @@ const DoctorListPage = () => {
         ))}
       </div>
 
-      {/* Doctor Cards Grid */}
+      {                       }
       {loading ? (
         <Loader text="Đang tìm kiếm bác sĩ chuyên khoa Hà Nội..." />
       ) : doctors.length === 0 ? (
@@ -384,7 +384,7 @@ const DoctorListPage = () => {
               className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
             >
               <div>
-                {/* Doctor Avatar & Top Info */}
+                {                              }
                 <div className="flex items-start space-x-3.5">
                   <img
                     src={doctor.userId?.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=350&q=80'}
@@ -405,7 +405,7 @@ const DoctorListPage = () => {
                   </div>
                 </div>
 
-                {/* Hospital & Bio */}
+                {                    }
                 <div className="mt-3.5 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                   <p className="truncate flex items-center font-medium text-slate-700 dark:text-slate-300" title={doctor.hospital}>
                     <Hospital className="w-3.5 h-3.5 mr-1.5 text-primary-600 flex-shrink-0" />
@@ -416,7 +416,7 @@ const DoctorListPage = () => {
                   </p>
                 </div>
 
-                {/* Rating & Fee */}
+                {                  }
                 <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
                   <div className="flex items-center text-amber-500 font-bold">
                     <Star className="w-4 h-4 fill-amber-400 mr-1" />
@@ -431,7 +431,7 @@ const DoctorListPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {                    }
               <div className="mt-5 grid grid-cols-2 gap-2 pt-1">
                 <Link to={`/doctors/${doctor._id}`}>
                   <Button variant="outline" size="sm" className="w-full text-xs">
@@ -452,7 +452,7 @@ const DoctorListPage = () => {
         </div>
       )}
 
-      {/* Pagination Controls */}
+      {                         }
       {totalPages > 1 && (
         <div className="flex items-center justify-center space-x-3 pt-4">
           <Button
