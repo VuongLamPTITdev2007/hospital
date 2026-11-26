@@ -26,19 +26,7 @@ const LoginPage = () => {
         navigate('/');
       }
     } catch (err) {
-      // Fallback demo login nếu backend chưa bật DB MongoDB
-      if (email && password) {
-        const demoUser = {
-          id: 'demo_user_1',
-          fullName: 'Bệnh Nhân Thử Nghiệm',
-          email: email,
-          role: email.includes('admin') ? 'admin' : email.includes('doctor') ? 'doctor' : 'patient'
-        };
-        login(demoUser, 'demo_token_xyz');
-        navigate('/');
-      } else {
-        setError(err.message || 'Đăng nhập thất bại!');
-      }
+      setError(err.message || 'Đăng nhập thất bại!');
     } finally {
       setLoading(false);
     }

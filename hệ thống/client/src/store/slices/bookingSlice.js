@@ -30,7 +30,24 @@ const bookingSlice = createSlice({
   initialState,
   reducers: {
     selectDoctor: (state, action) => {
-      state.selectedDoctor = action.payload;
+      const payload = action.payload;
+      if (!payload) {
+        state.selectedDoctor = null;
+        state.selectedSlot = '';
+        return;
+      }
+      // Chuẩn hóa thông tin bác sĩ để tương thích giữa DoctorList/DoctorDetail (DoctorProfile) và BookingPage
+      const normalizedId = payload.doctorId || payload.userId?._id || payload.userId || payload.id || payload._id;
+      state.selectedDoctor = {
+        ...payload,
+        id: normalizedId,
+        doctorId: normalizedId,
+        doctorProfileId: payload.doctorProfileId || payload._id,
+        name: payload.name || payload.userId?.fullName || 'Bác sĩ MedCare',
+        specialty: payload.specialty || payload.specialtyId?.name || 'Đa khoa',
+        avatar: payload.avatar || payload.userId?.avatar,
+        fee: payload.fee ?? payload.consultationFee ?? 350000
+      };
       state.selectedSlot = ''; // Reset slot khi đổi bác sĩ
     },
     selectDate: (state, action) => {

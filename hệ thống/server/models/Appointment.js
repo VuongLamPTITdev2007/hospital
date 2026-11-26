@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { indexOptions } = require('../services/slotPolicy');
 
 const appointmentSchema = new mongoose.Schema({
   patientId: {
@@ -58,13 +59,14 @@ const appointmentSchema = new mongoose.Schema({
     default: 'pending'
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  autoIndex: false
 });
 
-// Đảm bảo không trùng lịch: 1 bác sĩ không thể có 2 ca trùng ngày & timeSlot (ngoại trừ ca đã cancelled)
+// Đảm bảo không trùng lịch: 1 bác sĩ không thể có 2 ca trùng ngày & timeSlot (đồng bộ với unique_active_doctor_slot trên Atlas)
 appointmentSchema.index(
   { doctorId: 1, date: 1, timeSlot: 1 },
-  { unique: true, partialFilterExpression: { status: { $ne: 'cancelled' } } }
+  indexOptions
 );
 
 module.exports = mongoose.model('Appointment', appointmentSchema);

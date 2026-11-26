@@ -66,7 +66,7 @@ const DoctorSlotSelector = () => {
 
   // Xử lý chọn slot
   const handleSlotClick = (slot) => {
-    if (slot.isBooked) return;
+    if (slot.isBooked || slot.isPast) return;
     dispatch(selectSlot(slot.time));
   };
 
@@ -224,15 +224,17 @@ const DoctorSlotSelector = () => {
               const isSelected = selectedSlot === slot.time;
               const isHolding = slot.status === 'holding';
               const isBooked = slot.isBooked;
+              const isPast = Boolean(slot.isPast);
+              const isDisabled = isBooked || isPast;
 
               return (
                 <button
                   key={index}
                   type="button"
-                  disabled={isBooked}
+                  disabled={isDisabled}
                   onClick={() => handleSlotClick(slot)}
                   className={`p-3 rounded-xl border text-sm font-semibold transition-all flex flex-col items-center justify-center relative ${
-                    isBooked
+                    isDisabled
                       ? isHolding
                         ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 cursor-not-allowed'
                         : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed line-through'
@@ -243,7 +245,7 @@ const DoctorSlotSelector = () => {
                 >
                   <span className="font-mono">{slot.time}</span>
                   <span className="text-[11px] font-normal mt-1">
-                    {isHolding ? 'Đang giữ 5p' : isBooked ? 'Đã kín' : isSelected ? 'Đang chọn' : 'Còn trống'}
+                    {isHolding ? 'Đang giữ 5p' : isBooked ? 'Đã kín' : isPast ? 'Đã qua giờ' : isSelected ? 'Đang chọn' : 'Còn trống'}
                   </span>
                 </button>
               );

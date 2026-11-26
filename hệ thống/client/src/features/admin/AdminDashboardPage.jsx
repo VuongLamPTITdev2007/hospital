@@ -60,7 +60,7 @@ const AdminDashboardPage = () => {
           Phân hệ TV 6: Quản trị Admin & Thống kê Analytics
         </span>
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Bảng Điều Khiển Quản Trị & Báo Cáo Y Tế</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Báo cáo được tổng hợp trực tiếp từ MongoDB Aggregation Pipeline.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tổng hợp từ MongoDB Aggregation Pipeline. Số liệu phí khám là phí dự kiến của các ca hoàn tất có xác nhận cọc mô phỏng (không phải doanh thu ngân hàng thực thu); tổng tài khoản tính trên toàn hệ thống.</p>
       </section>
 
       <AnalyticsFilter
@@ -78,7 +78,7 @@ const AdminDashboardPage = () => {
       {!loading && !error && analytics && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatsCard label="Phí khám đã thanh toán" value={`${analytics.summary.paidRevenue.toLocaleString('vi-VN')} đ`} helper={`Từ ${analytics.filters.from} đến ${analytics.filters.to}`} icon={DollarSign} tone="emerald" />
+            <StatsCard label="Phí khám mô phỏng" value={`${analytics.summary.paidRevenue.toLocaleString('vi-VN')} đ`} helper={`Từ ${analytics.filters.from} đến ${analytics.filters.to}`} icon={DollarSign} tone="emerald" />
             <StatsCard label="Ca khám hoàn tất" value={`${analytics.summary.completedAppointments} ca`} helper="Lịch khám có trạng thái hoàn tất" icon={CalendarCheck} tone="primary" />
             <StatsCard label="Bệnh nhân đã đăng ký" value={`${analytics.summary.patientCount} người`} helper={`${analytics.usersByRole.patient} tài khoản patient`} icon={Users} tone="sky" />
             <StatsCard label="Bác sĩ & Dược sĩ" value={`${analytics.summary.staffCount} nhân sự`} helper={`RBAC: ${analytics.usersByRole.admin} admin`} icon={Shield} tone="purple" />

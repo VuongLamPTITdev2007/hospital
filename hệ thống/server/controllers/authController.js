@@ -7,6 +7,14 @@ exports.register = async (req, res, next) => {
   try {
     const { fullName, email, password, phone, role } = req.body;
 
+    // Chặn tự đăng ký vai trò nhân viên (bác sĩ, dược sĩ, admin) từ cổng công khai
+    if (role && role !== 'patient') {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản bệnh nhân được đăng ký công khai. Tài khoản nhân viên do hệ thống cấp.'
+      });
+    }
+
     // Kiểm tra email tồn tại
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -25,7 +33,7 @@ exports.register = async (req, res, next) => {
       email,
       password: hashedPassword,
       phone: phone || '',
-      role: role || 'patient'
+      role: 'patient'
     });
 
     // Tạo JWT token

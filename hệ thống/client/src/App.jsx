@@ -13,7 +13,7 @@ import PharmacyInventoryPage from './features/pharmacy/PharmacyInventoryPage';
 import QnAPage from './features/community/QnAPage';
 import AdminDashboardPage from './features/admin/AdminDashboardPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
-import ChatWidget from './features/chat/ChatWidget';
+import ChatWidget from './features/chatbot/ChatWidget';
 
 // Layout chung bao gồm Navbar, ChatWidget và Footer
 const MainLayout = () => {

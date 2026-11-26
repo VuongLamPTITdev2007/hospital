@@ -156,7 +156,7 @@ async function runTests() {
     await Appointment.deleteMany({
       doctorId: targetDoctor.doctorId,
       date: testDateStr,
-      timeSlot: '10:00 - 10:30'
+      timeSlot: { $in: ['10:00-10:30', '10:00 - 10:30'] }
     });
 
     // 6. Test POST /api/appointments/hold (User 1 giữ chỗ 5 phút)

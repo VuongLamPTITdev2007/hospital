@@ -3,7 +3,7 @@ import { Activity } from 'lucide-react';
 
 const RevenueBySpecialty = ({ items }) => (
   <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
-    <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center"><Activity className="w-5 h-5 mr-2 text-primary-600" /> Doanh thu theo chuyên khoa</h2>
+    <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center"><Activity className="w-5 h-5 mr-2 text-primary-600" /> Phí khám mô phỏng theo chuyên khoa</h2>
     <div className="space-y-4">
       {items.map((item) => (
         <div key={item.specialty} className="space-y-1.5">
