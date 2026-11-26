@@ -47,11 +47,15 @@ const App = () => {
         {/* Phân hệ TV 2: Đặt lịch hẹn */}
         <Route path="booking" element={<BookingPage />} />
         
-        {/* Phân hệ TV 3: Bàn làm việc bác sĩ */}
-        <Route path="examination" element={<DoctorWorkspacePage />} />
-        
-        {/* Phân hệ TV 4: Kho dược phẩm */}
-        <Route path="pharmacy" element={<PharmacyInventoryPage />} />
+        {/* Phân hệ TV 3: Bàn làm việc bác sĩ (Bảo vệ theo vai trò) */}
+        <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}>
+          <Route path="examination" element={<DoctorWorkspacePage />} />
+        </Route>
+
+        {/* Phân hệ TV 4: Kho dược phẩm (Bảo vệ theo vai trò) */}
+        <Route element={<ProtectedRoute allowedRoles={['doctor', 'pharmacist', 'admin']} />}>
+          <Route path="pharmacy" element={<PharmacyInventoryPage />} />
+        </Route>
         
         {/* Phân hệ TV 5: Hỏi đáp & Đánh giá */}
         <Route path="community" element={<QnAPage />} />

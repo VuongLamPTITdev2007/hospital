@@ -10,11 +10,11 @@
 | Thành viên | Phân hệ (Feature) | Thư mục Frontend (React) | File Backend (Express + MongoDB) |
 | :---: | :--- | :--- | :--- |
 | **Nguyễn Thọ Việt Dũng (Leader)** | **Cổng Bác sĩ & Chuyên khoa** | `client/src/features/doctors/` | `server/controllers/doctorController.js`, `Specialty.js`, `DoctorProfile.js` |
-| **Lưu Tổng** | **Booking Engine & Giữ chỗ 5p** | `client/src/features/booking/` | `server/controllers/appointmentController.js`, `Appointment.js` |
+| **Lưu Công Chung** | **Booking Engine & Giữ chỗ 5p** | `client/src/features/booking/` | `server/controllers/appointmentController.js`, `Appointment.js` |
 | **Vương Gia Khánh** | **Bàn làm việc Bác sĩ & Bệnh án (EHR)** | `client/src/features/examination/` | `server/controllers/medicalRecordController.js`, `MedicalRecord.js` |
 | **Vũ Ngọc Mai** | **Kê đơn thuốc & Kho Dược** | `client/src/features/pharmacy/` | `server/controllers/medicineController.js`, `Medicine.js`, `Prescription.js` |
 | **Nguyễn Thùy Linh** | **Hỏi - Đáp Y tế & Đánh giá Review** | `client/src/features/community/` | `server/controllers/communityController.js`, `Discussion.js`, `Review.js` |
-| **Nguyễn Bình Minh ** | **Quản trị Admin & Thống kê Analytics** | `client/src/features/admin/` | `server/controllers/adminController.js`, Aggregation Pipelines |
+| **Nguyễn Bình Minh** | **Quản trị Admin & Trợ lý AI Chatbot** | `client/src/features/admin/`, `client/src/features/chatbot/` | `server/controllers/adminController.js`, `chatController.js`, Aggregation Pipelines |
 
 ---
 
@@ -56,9 +56,12 @@ MONGO_URI=mongodb://127.0.0.1:27017/medcare_db
 JWT_SECRET=medcare_super_secret_jwt_key_2026_vibecoding
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
+*(Nếu dùng MongoDB Atlas chung của nhóm, thay `MONGO_URI` bằng connection string Atlas. Biến `OPENROUTER_API_KEY` dùng cho trợ lý Chatbot đặt lịch ở phân hệ TV 6).*
 
-### Bước 3: Khởi chạy dự án
+### Bước 3: Khởi chạy dự án & Kiểm thử
 Mở 2 cửa sổ terminal:
 ```bash
 # Terminal 1: Chạy Backend Server (Port 5000)
@@ -66,15 +69,18 @@ npm run dev:server
 
 # Terminal 2: Chạy Frontend Client (Port 5173)
 npm run dev:client
+
+# Chạy kiểm thử tích hợp Booking Engine & Race Condition (TV 2)
+npm run test:booking
 ```
 Truy cập giao diện tại: **`http://localhost:5173`**
 
 ---
 
 ## 4. Tài khoản Demo cho từng Vai trò
-* **Quản trị viên (Admin):** `admin@medcare.vn` / `123456`
+* **Quản trị viên (Admin):** `admin@medcare.vn` / `123456` *(hoặc `admin.minh@medcare.local` / `Admin123456`)*
 * **Bác sĩ (Doctor):** `doctor.an@medcare.vn` / `123456`
-* **Dược sĩ (Pharmacist):** `duocsi.mai@medcare.vn` / `123456`
+* **Dược sĩ (Pharmacist):** `duocsi.mai@medcare.vn` / `123456` *(hoặc `pharmacist.minh@medcare.local` / `Admin123456`)*
 * **Bệnh nhân (Patient):** `benhnhan@gmail.com` / `123456`
 
 ---
