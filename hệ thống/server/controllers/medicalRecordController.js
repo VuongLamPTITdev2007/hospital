@@ -25,6 +25,19 @@ exports.createMedicalRecord = async (req, res, next) => {
       });
     }
 
+    // Kiểm tra lịch hẹn có thuộc về bác sĩ phụ trách không (nếu là doctor)
+    const appointment = await Appointment.findById(appointmentId);
+    if (
+      appointment &&
+      req.user?.role === 'doctor' &&
+      appointment.doctorId.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không phải bác sĩ phụ trách lịch hẹn này!'
+      });
+    }
+
     // Chặn tạo trùng bệnh án cho cùng 1 lịch hẹn
     const existingRecord = await MedicalRecord.findOne({ appointmentId });
     if (existingRecord) {
@@ -82,18 +95,24 @@ exports.getDoctorQueue = async (req, res, next) => {
       .populate('doctorId', 'fullName email')
       .sort({ date: 1, timeSlot: 1 });
 
-    // Kiểm tra lịch hẹn nào đã có bệnh án
+    // Kiểm tra lịch hẹn nào đã có bệnh án và gắn kèm medicalRecordId
     const appointmentIds = appointments.map((app) => app._id);
     const existingRecords = await MedicalRecord.find({
       appointmentId: { $in: appointmentIds }
     }).select('appointmentId _id');
 
-    const recordedSet = new Set(existingRecords.map((r) => r.appointmentId.toString()));
+    const recordMap = new Map(
+      existingRecords.map((r) => [r.appointmentId.toString(), r._id.toString()])
+    );
 
-    const formattedQueue = appointments.map((app) => ({
-      ...app.toObject(),
-      hasMedicalRecord: recordedSet.has(app._id.toString())
-    }));
+    const formattedQueue = appointments.map((app) => {
+      const recId = recordMap.get(app._id.toString()) || null;
+      return {
+        ...app.toObject(),
+        hasMedicalRecord: Boolean(recId),
+        medicalRecordId: recId
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -293,7 +312,13 @@ exports.deleteMedicalRecord = async (req, res, next) => {
       });
     }
 
+    const linkedAppointmentId = record.appointmentId;
     await record.deleteOne();
+
+    // Đưa trạng thái lịch hẹn quay lại in_progress để bác sĩ có thể lập lại bệnh án nếu cần
+    if (linkedAppointmentId) {
+      await Appointment.findByIdAndUpdate(linkedAppointmentId, { status: 'in_progress' });
+    }
 
     res.status(200).json({
       success: true,

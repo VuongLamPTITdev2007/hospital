@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ClipboardList,
   CheckCircle,
   Upload,
   History,
-  Search,
-  Clock,
   AlertCircle,
-  Activity,
   FileCheck,
   RefreshCw,
   Plus,
   Trash2,
   Stethoscope,
   PlayCircle,
-  Eye
+  Eye,
+  Edit3
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
@@ -23,6 +20,8 @@ import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import axiosClient from '../../api/axiosClient';
+import PatientQueuePanel from './components/PatientQueuePanel';
+import PatientHistoryModal from './components/PatientHistoryModal';
 
 // Dữ liệu mẫu dùng khi chưa kết nối database hoặc chưa có lịch hẹn trong ngày
 const FALLBACK_PATIENTS = [
@@ -32,11 +31,12 @@ const FALLBACK_PATIENTS = [
     patientId: { _id: 'pat_01', fullName: 'Trần Văn Bình', email: 'binh.tran@gmail.com', phone: '0912345678' },
     patientName: 'Trần Văn Bình',
     patientPhone: '0912345678',
-    date: '2026-11-22',
+    date: '2026-11-26',
     timeSlot: '08:00 - 08:30',
     status: 'in_progress',
     symptomsNote: 'Đau tức ngực trái khi gắng sức, hồi hộp khó thở nhẹ',
-    hasMedicalRecord: false
+    hasMedicalRecord: false,
+    medicalRecordId: null
   },
   {
     _id: 'app_demo_02',
@@ -44,11 +44,12 @@ const FALLBACK_PATIENTS = [
     patientId: { _id: 'pat_02', fullName: 'Lê Thị Thu', email: 'thu.le@gmail.com', phone: '0987654321' },
     patientName: 'Lê Thị Thu',
     patientPhone: '0987654321',
-    date: '2026-11-22',
+    date: '2026-11-26',
     timeSlot: '09:00 - 09:30',
     status: 'waiting',
     symptomsNote: 'Khó thở về đêm, tim đập nhanh kèm đau đầu thoáng qua',
-    hasMedicalRecord: false
+    hasMedicalRecord: false,
+    medicalRecordId: null
   },
   {
     _id: 'app_demo_03',
@@ -56,13 +57,16 @@ const FALLBACK_PATIENTS = [
     patientId: { _id: 'pat_03', fullName: 'Phạm Minh Đức', email: 'duc.pham@gmail.com', phone: '0903112233' },
     patientName: 'Phạm Minh Đức',
     patientPhone: '0903112233',
-    date: '2026-11-22',
+    date: '2026-11-26',
     timeSlot: '09:30 - 10:00',
     status: 'completed',
     symptomsNote: 'Tái khám định kỳ tăng huyết áp vô căn',
-    hasMedicalRecord: true
+    hasMedicalRecord: true,
+    medicalRecordId: null
   }
 ];
+
+const DEFAULT_MEDICAL_HISTORY = 'Không có tiền sử dị ứng hoặc bệnh nền đặc biệt';
 
 // Chuẩn hóa tiếng Việt (bỏ dấu & viết thường) để tìm được cả "Thùy", "Thuỳ" lẫn "thuy"
 const normalizeText = (str = '') =>
@@ -79,45 +83,51 @@ const DoctorWorkspacePage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  // State danh sách hàng đợi khám
+  // State danh sách hàng đợi & bộ lọc
   const [patients, setPatients] = useState(FALLBACK_PATIENTS);
   const [activePatient, setActivePatient] = useState(FALLBACK_PATIENTS[0]);
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Trì hoãn từ khóa tìm kiếm 350ms để tránh lọc lại liên tục mỗi lần gõ phím
   const debouncedSearch = useDebounce(searchTerm, 350);
 
   // State các trường của form bệnh án điện tử (controlled inputs)
+  const [editingRecordId, setEditingRecordId] = useState(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
   const [symptoms, setSymptoms] = useState(FALLBACK_PATIENTS[0]?.symptomsNote || '');
-  const [diagnosis, setDiagnosis] = useState('Rối loạn nhịp xoang nhẹ / Theo dõi Tăng huyết áp độ 1');
-  const [medicalHistory, setMedicalHistory] = useState('Tiền sử gia đình có người mắc tim mạch. Chưa ghi nhận dị ứng thuốc.');
-  const [clinicalNotes, setClinicalNotes] = useState('Đề nghị đo điện tâm đồ ECG và siêu âm Doppler tim. Hạn chế ăn mặn.');
-  const [attachedImages, setAttachedImages] = useState([
-    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=500&q=80'
-  ]);
+  const [diagnosis, setDiagnosis] = useState('');
+  const [medicalHistory, setMedicalHistory] = useState(DEFAULT_MEDICAL_HISTORY);
+  const [clinicalNotes, setClinicalNotes] = useState('');
+  const [attachedImages, setAttachedImages] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  // State xử lý lưu, chuyển trạng thái và thông báo
+  // State xử lý lưu, xóa, chuyển trạng thái và thông báo
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
-  // State Modal lịch sử khám cũ và Modal phóng to ảnh xét nghiệm
+  // State các Modal phụ
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [patientHistory, setPatientHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Lấy danh sách bệnh nhân chờ khám từ server
+  // Tải danh sách hàng đợi khám bệnh từ server
   const fetchDoctorQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
       const res = await axiosClient.get('/records/doctor-queue');
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setPatients(res.data);
-        setActivePatient(res.data[0]);
-        setSymptoms(res.data[0]?.symptomsNote || '');
+        setActivePatient((prev) => {
+          const prevId = prev?._id || prev?.appointmentId;
+          const matched = res.data.find((item) => (item._id || item.appointmentId) === prevId);
+          return matched || res.data[0];
+        });
       } else {
         setPatients(FALLBACK_PATIENTS);
       }
@@ -133,19 +143,73 @@ const DoctorWorkspacePage = () => {
     if (isMounted) {
       fetchDoctorQueue();
     }
-    // Cleanup tránh cập nhật state khi component đã unmount
     return () => {
       isMounted = false;
     };
   }, [fetchDoctorQueue]);
 
+  // Tự động nạp hồ sơ bệnh án cũ lên form nếu ca khám đã có bệnh án (hỗ trợ xem & chỉnh sửa PUT)
+  useEffect(() => {
+    let isMounted = true;
+    const appointmentId = activePatient?._id || activePatient?.appointmentId;
+    if (!appointmentId) return () => {};
+
+    const defaultSymptoms = activePatient?.symptomsNote || activePatient?.symptoms || '';
+
+    const loadExistingRecord = async () => {
+      // Nếu là ca mẫu demo hoặc chưa lập bệnh án thì reset form sạch để bác sĩ nhập mới
+      if (!activePatient?.hasMedicalRecord || String(appointmentId).startsWith('app_demo_')) {
+        setEditingRecordId(null);
+        setSymptoms(defaultSymptoms);
+        setDiagnosis('');
+        setMedicalHistory(DEFAULT_MEDICAL_HISTORY);
+        setClinicalNotes('');
+        setAttachedImages([]);
+        return;
+      }
+
+      setLoadingRecord(true);
+      try {
+        const res = await axiosClient.get(`/records/appointment/${appointmentId}`);
+        if (isMounted && res.success && res.data) {
+          const rec = res.data;
+          setEditingRecordId(rec._id);
+          setSymptoms(rec.symptoms || defaultSymptoms);
+          setDiagnosis(rec.diagnosis || '');
+          setMedicalHistory(rec.medicalHistory || DEFAULT_MEDICAL_HISTORY);
+          setClinicalNotes(rec.clinicalNotes || '');
+          setAttachedImages(Array.isArray(rec.attachedImages) ? rec.attachedImages : []);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setEditingRecordId(null);
+          setSymptoms(defaultSymptoms);
+          setDiagnosis('');
+          setMedicalHistory(DEFAULT_MEDICAL_HISTORY);
+          setClinicalNotes('');
+          setAttachedImages([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingRecord(false);
+        }
+      }
+    };
+
+    loadExistingRecord();
+
+    // Cleanup tránh ghi đè form bằng response cũ khi bác sĩ bấm chuyển bệnh nhân nhanh
+    return () => {
+      isMounted = false;
+    };
+  }, [activePatient?._id, activePatient?.appointmentId, activePatient?.hasMedicalRecord]);
+
   const handleSelectPatient = (patient) => {
     setActivePatient(patient);
-    setSymptoms(patient.symptomsNote || patient.symptoms || '');
     setStatusMessage(null);
   };
 
-  // Tính nhanh thống kê ca khám trong ngày bằng useMemo
+  // Tính thống kê ca khám trong ngày bằng useMemo
   const stats = useMemo(() => {
     const total = patients.length;
     const waiting = patients.filter((p) => p.status === 'waiting' || p.status === 'confirmed').length;
@@ -155,19 +219,26 @@ const DoctorWorkspacePage = () => {
     return { total, waiting, inProgress, completed, rate };
   }, [patients]);
 
-  // Lọc danh sách bệnh nhân theo từ khóa đã debounce (hỗ trợ tiếng Việt không dấu & khác kiểu bỏ dấu)
+  // Lọc danh sách theo trạng thái + từ khóa đã debounce (hỗ trợ tiếng Việt không dấu)
   const filteredPatients = useMemo(() => {
     const term = normalizeText(debouncedSearch);
-    if (!term) return patients;
     return patients.filter((p) => {
+      const isDone = p.status === 'completed' || p.hasMedicalRecord;
+      const isWaiting = p.status === 'waiting' || p.status === 'confirmed';
+
+      if (statusFilter === 'waiting' && !isWaiting) return false;
+      if (statusFilter === 'in_progress' && p.status !== 'in_progress') return false;
+      if (statusFilter === 'completed' && !isDone) return false;
+
+      if (!term) return true;
       const name = normalizeText(p.patientName || p.patientId?.fullName || '');
       const phone = normalizeText(p.patientPhone || p.patientId?.phone || '');
       const sym = normalizeText(p.symptomsNote || p.symptoms || '');
       return name.includes(term) || phone.includes(term) || sym.includes(term);
     });
-  }, [patients, debouncedSearch]);
+  }, [patients, debouncedSearch, statusFilter]);
 
-  // Chuyển trạng thái ca khám từ Chờ khám (waiting) sang Đang khám (in_progress)
+  // Chuyển trạng thái ca khám: waiting/confirmed -> in_progress
   const handleStartExamination = async () => {
     if (!activePatient) return;
     const targetId = activePatient._id || activePatient.appointmentId;
@@ -183,7 +254,6 @@ const DoctorWorkspacePage = () => {
         text: `Đã tiếp nhận bệnh nhân ${activePatient.patientName || activePatient.patientId?.fullName} vào phòng khám!`
       });
     } catch (err) {
-      // Nếu đang chạy bằng dữ liệu mẫu chưa có trên DB, vẫn cập nhật trạng thái trên giao diện để demo
       setStatusMessage({
         type: 'success',
         text: `Đã chuyển ca khám của ${activePatient.patientName || activePatient.patientId?.fullName} sang trạng thái Đang khám.`
@@ -199,7 +269,7 @@ const DoctorWorkspacePage = () => {
     }
   };
 
-  // Lưu hồ sơ bệnh án điện tử (POST /api/records)
+  // Lưu mới (POST /api/records) hoặc Cập nhật bệnh án đã có (PUT /api/records/:id)
   const handleSaveRecord = async (e) => {
     e.preventDefault();
     if (!symptoms.trim() || !diagnosis.trim()) {
@@ -219,26 +289,41 @@ const DoctorWorkspacePage = () => {
       doctorId: user?.id || '65b1c9a1234567890abcdef2',
       symptoms: symptoms.trim(),
       diagnosis: diagnosis.trim(),
-      medicalHistory: medicalHistory.trim(),
+      medicalHistory: medicalHistory.trim() || DEFAULT_MEDICAL_HISTORY,
       clinicalNotes: clinicalNotes.trim(),
       attachedImages
     };
 
     try {
-      const res = await axiosClient.post('/records', payload);
-      setStatusMessage({
-        type: 'success',
-        text: res.message || 'Đã lưu hồ sơ bệnh án điện tử thành công!'
-      });
+      if (editingRecordId) {
+        const res = await axiosClient.put(`/records/${editingRecordId}`, payload);
+        setStatusMessage({
+          type: 'success',
+          text: res.message || 'Cập nhật hồ sơ bệnh án thành công!'
+        });
+      } else {
+        const res = await axiosClient.post('/records', payload);
+        const createdId = res.data?._id || null;
+        setEditingRecordId(createdId);
+        setStatusMessage({
+          type: 'success',
+          text: res.message || 'Đã lưu hồ sơ bệnh án điện tử thành công!'
+        });
 
-      setPatients((prev) =>
-        prev.map((p) =>
-          p._id === activePatient._id
-            ? { ...p, status: 'completed', hasMedicalRecord: true }
-            : p
-        )
-      );
-      setActivePatient((prev) => ({ ...prev, status: 'completed', hasMedicalRecord: true }));
+        setPatients((prev) =>
+          prev.map((p) =>
+            (p._id || p.appointmentId) === (activePatient._id || activePatient.appointmentId)
+              ? { ...p, status: 'completed', hasMedicalRecord: true, medicalRecordId: createdId }
+              : p
+          )
+        );
+        setActivePatient((prev) => ({
+          ...prev,
+          status: 'completed',
+          hasMedicalRecord: true,
+          medicalRecordId: createdId
+        }));
+      }
     } catch (err) {
       setStatusMessage({
         type: 'error',
@@ -246,6 +331,51 @@ const DoctorWorkspacePage = () => {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Xóa hồ sơ bệnh án (DELETE /api/records/:id) và đưa ca khám về trạng thái Đang khám
+  const handleConfirmDeleteRecord = async () => {
+    if (!editingRecordId) return;
+    setIsDeleting(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await axiosClient.delete(`/records/${editingRecordId}`);
+      const targetAppId = activePatient?._id || activePatient?.appointmentId;
+
+      setEditingRecordId(null);
+      setDiagnosis('');
+      setClinicalNotes('');
+      setAttachedImages([]);
+      setIsDeleteModalOpen(false);
+
+      setPatients((prev) =>
+        prev.map((p) =>
+          (p._id || p.appointmentId) === targetAppId
+            ? { ...p, status: 'in_progress', hasMedicalRecord: false, medicalRecordId: null }
+            : p
+        )
+      );
+      setActivePatient((prev) => ({
+        ...prev,
+        status: 'in_progress',
+        hasMedicalRecord: false,
+        medicalRecordId: null
+      }));
+
+      setStatusMessage({
+        type: 'success',
+        text: res.message || 'Đã xóa hồ sơ bệnh án. Bạn có thể lập lại bệnh án mới cho ca khám này.'
+      });
+    } catch (err) {
+      setIsDeleteModalOpen(false);
+      setStatusMessage({
+        type: 'error',
+        text: err.message || 'Không thể xóa hồ sơ bệnh án!'
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -262,16 +392,7 @@ const DoctorWorkspacePage = () => {
         setPatientHistory([]);
       }
     } catch (err) {
-      setPatientHistory([
-        {
-          _id: 'rec_old_01',
-          createdAt: '2026-08-15T09:00:00.000Z',
-          diagnosis: 'Cơn đau thắt ngực ổn định / Viêm họng cấp',
-          symptoms: 'Đau tức ngực kèm rát cổ họng',
-          clinicalNotes: 'Đã kê đơn 7 ngày và hẹn tái khám sau 1 tháng.',
-          doctorId: { fullName: 'BS. Lê Hoài An' }
-        }
-      ]);
+      setPatientHistory([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -320,6 +441,7 @@ const DoctorWorkspacePage = () => {
     navigate('/pharmacy', {
       state: {
         appointmentId: activePatient?._id || activePatient?.appointmentId,
+        medicalRecordId: editingRecordId,
         patientId: activePatient?.patientId?._id || activePatient?.patientId,
         patientName: activePatient?.patientName || activePatient?.patientId?.fullName,
         diagnosis: diagnosis.trim()
@@ -349,7 +471,7 @@ const DoctorWorkspacePage = () => {
               Phòng Khám Bác Sĩ – Tiếp Nhận & Lập Bệnh Án Điện Tử
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Theo dõi hàng đợi khám, gọi bệnh nhân vào khám, lưu chẩn đoán và kết quả cận lâm sàng.
+              Theo dõi hàng đợi khám, tiếp nhận ca khám, lập hoặc cập nhật hồ sơ bệnh án điện tử.
             </p>
           </div>
 
@@ -389,97 +511,18 @@ const DoctorWorkspacePage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Cột trái: Hàng đợi bệnh nhân */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center">
-              <ClipboardList className="w-5 h-5 mr-2 text-primary-600" /> Hàng Đợi Khám Bệnh
-            </h2>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-              {filteredPatients.length} ca
-            </span>
-          </div>
+        {/* Cột trái: Component Hàng đợi bệnh nhân */}
+        <PatientQueuePanel
+          patients={filteredPatients}
+          activePatient={activePatient}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          onSelectPatient={handleSelectPatient}
+        />
 
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên, SĐT hoặc triệu chứng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-
-          <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-            {filteredPatients.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400">
-                Không tìm thấy bệnh nhân phù hợp
-              </div>
-            ) : (
-              filteredPatients.map((p) => {
-                const isCurrent =
-                  (activePatient?._id || activePatient?.appointmentId) === (p._id || p.appointmentId);
-                const pName = p.patientName || p.patientId?.fullName || 'Bệnh nhân';
-                const pSlot = p.timeSlot || '08:00 - 08:30';
-                const pSymptoms = p.symptomsNote || p.symptoms || 'Chưa ghi nhận triệu chứng';
-                const isDone = p.status === 'completed' || p.hasMedicalRecord;
-
-                return (
-                  <div
-                    key={p._id || p.appointmentId}
-                    onClick={() => handleSelectPatient(p)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-950/40 ring-2 ring-primary-500/50'
-                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{pName}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-mono flex items-center">
-                        <Clock className="w-3 h-3 mr-1" /> {pSlot}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
-                      Triệu chứng: {pSymptoms}
-                    </p>
-
-                    <div className="mt-2.5 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400">
-                        SĐT: {p.patientPhone || p.patientId?.phone || 'Chưa cập nhật'}
-                      </span>
-                      <span
-                        className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center ${
-                          isDone
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
-                            : p.status === 'in_progress'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
-                        }`}
-                      >
-                        {isDone ? (
-                          <>
-                            <FileCheck className="w-3 h-3 mr-1" /> Đã Lập Bệnh Án
-                          </>
-                        ) : p.status === 'in_progress' ? (
-                          <>
-                            <Activity className="w-3 h-3 mr-1" /> Đang Khám
-                          </>
-                        ) : (
-                          'Chờ Khám'
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Cột phải: Form lập hồ sơ bệnh án điện tử */}
+        {/* Cột phải: Form lập / cập nhật hồ sơ bệnh án điện tử */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700 gap-3">
             <div>
@@ -487,9 +530,9 @@ const DoctorWorkspacePage = () => {
                 <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                   Hồ Sơ Bệnh Án: {activePatient?.patientName || activePatient?.patientId?.fullName || 'Chưa chọn'}
                 </h2>
-                {activePatient?.hasMedicalRecord && (
+                {editingRecordId && (
                   <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-semibold">
-                    Đã lưu CSDL
+                    Chế độ chỉnh sửa
                   </span>
                 )}
               </div>
@@ -545,6 +588,7 @@ const DoctorWorkspacePage = () => {
                 <span>{statusMessage.text}</span>
               </div>
               <button
+                type="button"
                 onClick={() => setStatusMessage(null)}
                 className="text-xs font-bold underline opacity-80 hover:opacity-100 ml-3"
               >
@@ -553,208 +597,194 @@ const DoctorWorkspacePage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSaveRecord} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Lý do khám / Triệu chứng lâm sàng ban đầu <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                rows={2}
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-                required
-                placeholder="Ghi nhận triệu chứng người bệnh khai báo..."
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Tiền sử bệnh án & Dị ứng thuốc
-              </label>
-              <textarea
-                rows={2}
-                value={medicalHistory}
-                onChange={(e) => setMedicalHistory(e.target.value)}
-                placeholder="Tiền sử bệnh lý gia đình, bệnh nền, dị ứng thuốc..."
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Kết luận chẩn đoán chuyên môn (ICD-10) <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                rows={2}
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                required
-                placeholder="Ví dụ: I10 - Tăng huyết áp vô căn..."
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Hướng điều trị & Dặn dò y lệnh
-              </label>
-              <textarea
-                rows={2}
-                value={clinicalNotes}
-                onChange={(e) => setClinicalNotes(e.target.value)}
-                placeholder="Dặn dò sinh hoạt, dinh dưỡng hoặc chỉ định xét nghiệm thêm..."
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-
-            {/* Upload và xem trước ảnh kết quả xét nghiệm / siêu âm */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Hình ảnh cận lâm sàng (Siêu âm, Điện tim, X-Quang)
+          {loadingRecord ? (
+            <Loader text="Đang tải hồ sơ bệnh án đã lưu..." />
+          ) : (
+            <form onSubmit={handleSaveRecord} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Lý do khám / Triệu chứng lâm sàng ban đầu <span className="text-red-500">*</span>
                 </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
+                <textarea
+                  rows={2}
+                  value={symptoms}
+                  onChange={(e) => setSymptoms(e.target.value)}
+                  required
+                  placeholder="Ghi nhận triệu chứng người bệnh khai báo..."
+                  className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center text-xs"
-                >
-                  <Upload className="w-3.5 h-3.5 mr-1.5" /> Tải ảnh từ máy
-                </Button>
               </div>
 
-              {attachedImages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {attachedImages.map((img, idx) => (
-                    <div
-                      key={idx}
-                      className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-24 bg-slate-100 dark:bg-slate-900"
-                    >
-                      <img src={img} alt={`Kết quả ${idx + 1}`} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImage(img)}
-                          className="p-1.5 bg-white/90 text-slate-800 rounded-md hover:bg-white"
-                          title="Xem phóng to"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(idx)}
-                          className="p-1.5 bg-red-600 text-white rounded-md hover:bg-red-700"
-                          title="Xóa ảnh"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tiền sử bệnh án & Dị ứng thuốc
+                </label>
+                <textarea
+                  rows={2}
+                  value={medicalHistory}
+                  onChange={(e) => setMedicalHistory(e.target.value)}
+                  placeholder="Tiền sử bệnh lý gia đình, bệnh nền, dị ứng thuốc..."
+                  className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Kết luận chẩn đoán chuyên môn (ICD-10) <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  required
+                  placeholder="Ví dụ: I10 - Tăng huyết áp vô căn..."
+                  className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Hướng điều trị & Dặn dò y lệnh
+                </label>
+                <textarea
+                  rows={2}
+                  value={clinicalNotes}
+                  onChange={(e) => setClinicalNotes(e.target.value)}
+                  placeholder="Dặn dò sinh hoạt, dinh dưỡng hoặc chỉ định xét nghiệm thêm..."
+                  className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                />
+              </div>
+
+              {/* Upload và xem trước ảnh kết quả xét nghiệm / siêu âm */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Hình ảnh cận lâm sàng (Siêu âm, Điện tim, X-Quang)
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center text-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5 mr-1.5" /> Tải ảnh từ máy
+                  </Button>
                 </div>
-              )}
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Hoặc dán URL ảnh chụp xét nghiệm / siêu âm..."
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
-                />
-                <Button type="button" size="sm" variant="outline" onClick={handleAddImageUrl}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Thêm link
-                </Button>
+                {attachedImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {attachedImages.map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 h-24 bg-slate-100 dark:bg-slate-900"
+                      >
+                        <img src={img} alt={`Kết quả ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(img)}
+                            className="p-1.5 bg-white/90 text-slate-800 rounded-md hover:bg-white"
+                            title="Xem phóng to"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="p-1.5 bg-red-600 text-white rounded-md hover:bg-red-700"
+                            title="Xóa ảnh"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Hoặc dán URL ảnh chụp xét nghiệm / siêu âm..."
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                  <Button type="button" size="sm" variant="outline" onClick={handleAddImageUrl}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Thêm link
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700 gap-3">
-              <span className="text-xs text-slate-400">
-                * Hồ sơ bệnh án được bảo mật và lưu trữ điện tử theo mã lịch hẹn.
-              </span>
-              <div className="flex space-x-3 w-full sm:w-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleForwardToPharmacy}
-                  className="flex-1 sm:flex-none"
-                >
-                  Chuyển Kê Đơn Thuốc (TV4)
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none flex items-center justify-center min-w-[170px]"
-                >
-                  {isSubmitting ? (
-                    'Đang Lưu...'
+              <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700 gap-3">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {editingRecordId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/60 dark:hover:bg-red-950/40 flex items-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Xóa bệnh án
+                    </Button>
                   ) : (
-                    <>
-                      <FileCheck className="w-4 h-4 mr-1.5" /> Lưu Bệnh Án Điện Tử
-                    </>
+                    <span className="text-xs text-slate-400">
+                      * Hồ sơ bệnh án được bảo mật và lưu trữ theo mã lịch hẹn.
+                    </span>
                   )}
-                </Button>
+                </div>
+
+                <div className="flex flex-wrap sm:flex-nowrap gap-2.5 w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleForwardToPharmacy}
+                    className="flex-1 sm:flex-none"
+                  >
+                    Chuyển Kê Đơn Thuốc (TV4)
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={isSubmitting}
+                    className="flex-1 sm:flex-none flex items-center justify-center min-w-[175px]"
+                  >
+                    {isSubmitting ? (
+                      'Đang xử lý...'
+                    ) : editingRecordId ? (
+                      <>
+                        <Edit3 className="w-4 h-4 mr-1.5" /> Cập Nhật Bệnh Án
+                      </>
+                    ) : (
+                      <>
+                        <FileCheck className="w-4 h-4 mr-1.5" /> Lưu Bệnh Án Điện Tử
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
       </div>
 
       {/* Modal Lịch sử khám bệnh */}
-      <Modal
+      <PatientHistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        title={`Lịch Sử Khám Bệnh: ${activePatient?.patientName || activePatient?.patientId?.fullName || ''}`}
-        maxWidth="max-w-2xl"
-      >
-        {loadingHistory ? (
-          <Loader text="Đang tải lịch sử bệnh án..." />
-        ) : patientHistory.length === 0 ? (
-          <div className="text-center py-6 text-slate-500 text-sm">
-            Bệnh nhân chưa có lịch sử bệnh án trước đây.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {patientHistory.map((rec) => (
-              <div
-                key={rec._id}
-                className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300">
-                    Ngày khám: {new Date(rec.createdAt).toLocaleDateString('vi-VN')}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium">
-                    Bác sĩ: {rec.doctorId?.fullName || 'Bác sĩ phụ trách'}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  <strong className="text-slate-800 dark:text-slate-200">Chẩn đoán: </strong>
-                  <span className="text-slate-700 dark:text-slate-300">{rec.diagnosis}</span>
-                </div>
-                <div className="text-xs text-slate-500">
-                  <strong>Triệu chứng: </strong> {rec.symptoms}
-                </div>
-                {rec.clinicalNotes && (
-                  <div className="text-xs text-slate-500">
-                    <strong>Ghi chú: </strong> {rec.clinicalNotes}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
+        patientName={activePatient?.patientName || activePatient?.patientId?.fullName}
+        loading={loadingHistory}
+        history={patientHistory}
+      />
 
       {/* Modal xem phóng to ảnh xét nghiệm */}
       <Modal
@@ -770,6 +800,35 @@ const DoctorWorkspacePage = () => {
             className="w-full max-h-[70vh] object-contain rounded-lg"
           />
         )}
+      </Modal>
+
+      {/* Modal xác nhận xóa bệnh án */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Xác nhận xóa hồ sơ bệnh án"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Bạn có chắc chắn muốn xóa hồ sơ bệnh án của bệnh nhân{' '}
+            <strong>{activePatient?.patientName || activePatient?.patientId?.fullName}</strong>? Trạng thái ca khám sẽ được chuyển về <strong>Đang khám</strong> để bạn có thể lập lại bệnh án mới.
+          </p>
+          <div className="flex justify-end gap-2.5">
+            <Button type="button" variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isDeleting}
+              onClick={handleConfirmDeleteRecord}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
