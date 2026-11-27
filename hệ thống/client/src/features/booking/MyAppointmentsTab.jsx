@@ -18,12 +18,14 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Eye,
   Trash2,
   CreditCard
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import Modal from '../../components/common/Modal';
 import { Link } from 'react-router-dom';
 
 const STATUS_BADGES = {
@@ -42,6 +44,8 @@ const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelError, setCancelError] = useState('');
 
   const fetchAppointments = async () => {
     if (!isAuthenticated) return;
@@ -110,18 +114,30 @@ const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
     }
   };
 
-  const handleCancel = async (apptId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn khám này không? Khung giờ sẽ được giải phóng cho bệnh nhân khác.')) {
-      return;
-    }
+  const openCancelModal = (appt) => {
+    setCancelError('');
+    setCancelTarget(appt);
+  };
+
+  const closeCancelModal = () => {
+    if (cancellingId) return;
+    setCancelTarget(null);
+    setCancelError('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    const apptId = cancelTarget._id;
     try {
       setCancellingId(apptId);
+      setCancelError('');
       const res = await axiosClient.post(`/appointments/${apptId}/cancel`);
       if (res.success) {
+        setCancelTarget(null);
         fetchAppointments();
       }
     } catch (err) {
-      alert(err.message || 'Không thể hủy lịch hẹn!');
+      setCancelError(err.message || 'Không thể hủy lịch hẹn! Vui lòng thử lại.');
     } finally {
       setCancellingId(null);
     }
@@ -269,7 +285,7 @@ const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
                       variant="outline"
                       size="sm"
                       disabled={cancellingId === appt._id}
-                      onClick={() => handleCancel(appt._id)}
+                      onClick={() => openCancelModal(appt)}
                       className="text-red-600 hover:text-red-700 hover:border-red-300"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
@@ -286,6 +302,74 @@ const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
           })}
         </div>
       )}
+
+      {/* Modal xác nhận hủy lịch hẹn / hủy giữ chỗ đồng bộ giao diện */}
+      <Modal
+        isOpen={Boolean(cancelTarget)}
+        onClose={closeCancelModal}
+        title={cancelTarget?.status === 'holding' ? 'Xác nhận hủy giữ chỗ' : 'Xác nhận hủy lịch hẹn'}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start space-x-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              Bạn có chắc chắn muốn hủy{' '}
+              <strong>{cancelTarget?.status === 'holding' ? 'phiên giữ chỗ' : 'lịch hẹn khám'}</strong>{' '}
+              này không? Khung giờ sẽ được giải phóng ngay cho bệnh nhân khác.
+            </p>
+          </div>
+
+          {cancelTarget && (
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Mã phiếu:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  #{cancelTarget._id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bác sĩ:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {cancelTarget.doctorId?.fullName || 'Bác sĩ MedCare'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Thời gian:</span>
+                <span className="font-semibold text-primary-600 font-mono">
+                  {cancelTarget.timeSlot} · {cancelTarget.date}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {cancelError && (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{cancelError}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end space-x-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(cancellingId)}
+              onClick={closeCancelModal}
+            >
+              Giữ lại lịch
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={Boolean(cancellingId)}
+              onClick={handleConfirmCancel}
+            >
+              Xác nhận hủy
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
