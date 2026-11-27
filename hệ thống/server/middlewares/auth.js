@@ -48,7 +48,6 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-// Middleware xác thực token tùy chọn (cho endpoint public có phân tầng dữ liệu theo vai trò)
 const optionalVerifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

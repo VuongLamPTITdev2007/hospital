@@ -1,6 +1,5 @@
 const Medicine = require('../models/Medicine');
 
-// Escape ký tự đặc biệt trước khi đưa vào RegExp để tránh sai biểu thức chính quy
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const MEDICAL_STAFF_ROLES = ['admin', 'doctor', 'pharmacist'];
