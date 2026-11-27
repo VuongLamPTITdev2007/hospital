@@ -204,6 +204,8 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
           filteredAppointments.map((app) => {
             const isCompleted = app.status === 'completed';
             const isReviewed = Boolean(app.isReviewed);
+            const hasMedicalRecord = Boolean(app.hasMedicalRecord);
+            const canReview = app.canReview ?? (isCompleted && hasMedicalRecord && !isReviewed);
 
             return (
               <div
@@ -253,23 +255,25 @@ const AppointmentHistory = ({ appointments = [], onReviewDoctor }) => {
 
                   {/* Nút hành động đánh giá */}
                   <div className="flex items-center sm:self-center">
-                    {isCompleted ? (
-                      isReviewed ? (
-                        <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 text-xs font-semibold border border-slate-200 dark:border-slate-600 select-none">
-                          <Check className="w-4 h-4 text-emerald-500" />
-                          <span>Đã đánh giá</span>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => onReviewDoctor(app)}
-                          className="shadow-sm shadow-primary-500/20"
-                        >
-                          <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-300 text-amber-300" />
-                          Đánh giá bác sĩ
-                        </Button>
-                      )
+                    {isReviewed ? (
+                      <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 text-xs font-semibold border border-slate-200 dark:border-slate-600 select-none">
+                        <Check className="w-4 h-4 text-emerald-500" />
+                        <span>Đã đánh giá</span>
+                      </div>
+                    ) : canReview ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => onReviewDoctor(app)}
+                        className="shadow-sm shadow-primary-500/20"
+                      >
+                        <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-300 text-amber-300" />
+                        Đánh giá bác sĩ
+                      </Button>
+                    ) : (isCompleted && !hasMedicalRecord) ? (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400 italic">
+                        * Chờ bác sĩ hoàn thiện bệnh án để đánh giá
+                      </span>
                     ) : app.status === 'in_progress' ? (
                       <span className="text-[11px] text-amber-600 dark:text-amber-400 italic">
                         * Bác sĩ đang khám, đánh giá sẽ mở sau khi hoàn tất
