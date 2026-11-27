@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Pill, ClipboardList, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useFetch } from '../../hooks/useFetch';
+import { useDebounce } from '../../hooks/useDebounce';
 import {
+  fetchMedicines,
   createMedicine,
   updateMedicine,
   deleteMedicine,
@@ -44,14 +45,70 @@ const PharmacyInventoryPage = () => {
   const [prescriptionsError, setPrescriptionsError] = useState('');
   const [printingPrescription, setPrintingPrescription] = useState(null);
 
-  const {
-    data: medicinesRes,
-    loading: medicinesLoading,
-    error: medicinesError,
-    refetch: refetchMedicines
-  } = useFetch('/medicines');
+  const [medicines, setMedicines] = useState([]);
+  const [medicinesLoading, setMedicinesLoading] = useState(true);
+  const [medicinesError, setMedicinesError] = useState('');
+  const [medicineSummary, setMedicineSummary] = useState(null);
+  const [prescribeMedicines, setPrescribeMedicines] = useState([]);
 
-  const medicines = medicinesRes?.data || [];
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState('Tất cả');
+  const [onlyLowStock, setOnlyLowStock] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+
+  const debouncedSearch = useDebounce(searchTerm, 400);
+
+  const loadMedicines = useCallback(async () => {
+    setMedicinesLoading(true);
+    setMedicinesError('');
+    try {
+      const params = { page, limit: 10 };
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (selectedUnit !== 'Tất cả') params.unit = selectedUnit;
+      if (onlyLowStock) params.lowStock = 'true';
+
+      const res = await fetchMedicines(params);
+      setMedicines(res.data || []);
+      setMedicineSummary(res.summary || null);
+      setPagination({
+        total: res.total ?? (res.data?.length || 0),
+        page: res.page || page,
+        limit: res.limit || 10,
+        totalPages: res.totalPages || 1
+      });
+    } catch (err) {
+      setMedicinesError(err.message || 'Không thể tải danh sách thuốc trong kho!');
+    } finally {
+      setMedicinesLoading(false);
+    }
+  }, [page, debouncedSearch, selectedUnit, onlyLowStock]);
+
+  const loadPrescribeMedicines = useCallback(async () => {
+    if (!isAuthenticated || !canPrescribe) return;
+    try {
+      const res = await fetchMedicines({ page: 1, limit: 100 });
+      setPrescribeMedicines(res.data || []);
+    } catch {
+      setPrescribeMedicines([]);
+    }
+  }, [isAuthenticated, canPrescribe]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedUnit, onlyLowStock]);
+
+  useEffect(() => {
+    loadMedicines();
+  }, [loadMedicines]);
+
+  useEffect(() => {
+    loadPrescribeMedicines();
+  }, [loadPrescribeMedicines]);
+
+  const refetchMedicines = useCallback(async () => {
+    await Promise.all([loadMedicines(), loadPrescribeMedicines()]);
+  }, [loadMedicines, loadPrescribeMedicines]);
 
   const loadPrescriptions = async () => {
     if (!isAuthenticated) return;
@@ -205,6 +262,7 @@ const PharmacyInventoryPage = () => {
         {activeTab === 'inventory' && (
           <MedicineTable
             medicines={medicines}
+            summary={medicineSummary}
             loading={medicinesLoading}
             error={medicinesError}
             onRetry={refetchMedicines}
@@ -212,12 +270,20 @@ const PharmacyInventoryPage = () => {
             onAdd={handleOpenAdd}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteMedicine}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            selectedUnit={selectedUnit}
+            onUnitChange={setSelectedUnit}
+            onlyLowStock={onlyLowStock}
+            onLowStockChange={setOnlyLowStock}
+            pagination={pagination}
+            onPageChange={setPage}
           />
         )}
 
         {activeTab === 'prescribe' && canPrescribe && (
           <PrescriptionBuilder
-            medicines={medicines}
+            medicines={prescribeMedicines.length > 0 ? prescribeMedicines : medicines}
             patients={patients}
             onCreatePrescription={handleCreatePrescription}
           />

@@ -5,7 +5,7 @@ const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 exports.getMedicines = async (req, res, next) => {
   try {
-    const { search, unit, lowStock } = req.query;
+    const { search, unit, lowStock, page = 1, limit = 10 } = req.query;
     const filter = {};
 
     if (search && search.trim()) {
@@ -24,11 +24,45 @@ exports.getMedicines = async (req, res, next) => {
       filter.$expr = { $lte: ['$stockQuantity', '$minStockAlert'] };
     }
 
-    const medicines = await Medicine.find(filter).sort({ createdAt: -1 });
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [medicines, total, summaryAgg] = await Promise.all([
+      Medicine.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      Medicine.countDocuments(filter),
+      Medicine.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalMedicines: { $sum: 1 },
+            lowStockCount: {
+              $sum: {
+                $cond: [{ $lte: ['$stockQuantity', '$minStockAlert'] }, 1, 0]
+              }
+            },
+            totalUnits: { $sum: '$stockQuantity' }
+          }
+        }
+      ])
+    ]);
+
+    const summary = summaryAgg[0]
+      ? {
+          totalMedicines: summaryAgg[0].totalMedicines,
+          lowStockCount: summaryAgg[0].lowStockCount,
+          totalUnits: summaryAgg[0].totalUnits
+        }
+      : { totalMedicines: 0, lowStockCount: 0, totalUnits: 0 };
 
     res.status(200).json({
       success: true,
       count: medicines.length,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      summary,
       data: medicines
     });
   } catch (error) {
