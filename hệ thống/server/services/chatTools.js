@@ -1,8 +1,10 @@
 const booking = require('../controllers/appointmentController');
-const { getAvailabilityFilters, findAvailableSlots, fold } = require('./availabilityService');
+const { getAvailabilityFilters, findAvailableSlots, addDays, fold } = require('./availabilityService');
 const { validDate, validSlot } = require('./slotPolicy');
 
 const PAGE_SIZE = 20;
+const ALTERNATIVE_DAYS = 14;
+const ALTERNATIVE_LIMIT = 6;
 const partsOfDay = ['morning', 'afternoon', 'evening'];
 
 const readSelectionIntent = (args) => {
@@ -116,6 +118,19 @@ const getAvailabilityPage = async (args, after) => {
   return { ...(dateFrom === dateTo ? { date: dateFrom } : {}), dateFrom, dateTo, searchFilters, options, truncated, nextPage };
 };
 
+const getAlternativeSlots = async ({ doctorId, date, timeSlot }) => {
+  const end = addDays(date, ALTERNATIVE_DAYS);
+  const filters = getAvailabilityFilters({ doctorId, dateFrom: date, dateTo: validDate(end) ? end : '9999-12-31' });
+  if (filters.error) return { options: [], suggestedDate: null };
+
+  const doctors = await callBooking(booking.getDoctorsForBooking, {});
+  const available = await findAvailableSlots(doctors, filters);
+  const alternatives = available.filter((option) => option.date !== date || option.timeSlot !== timeSlot);
+  const suggestedDate = alternatives[0]?.date || null;
+  const options = alternatives.filter((option) => option.date === suggestedDate).slice(0, ALTERNATIVE_LIMIT);
+  return { options, suggestedDate };
+};
+
 const execute = async (name, args) => {
   if (name === 'search_doctors') {
     const query = args?.query || '';
@@ -133,4 +148,4 @@ const execute = async (name, args) => {
   return getAvailabilityPage(args);
 };
 
-module.exports = { schemas, execute, getAvailabilityPage, readSelectionIntent };
+module.exports = { schemas, execute, getAvailabilityPage, getAlternativeSlots, readSelectionIntent };

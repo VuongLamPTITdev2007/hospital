@@ -8,6 +8,12 @@ import { selectDoctor, selectDate, selectSlot, setPatientInfo, setHoldingInfo, s
 import { resolveChatSelection } from './resolveChatSelection';
 
 const slotKey = ({ doctorId, date, timeSlot }) => `${doctorId}-${date}-${timeSlot}`;
+const displayDate = (date) => date.split('-').reverse().join('/');
+const holdResponseConfig = {
+  validateStatus: (status) => status === 409 || (status >= 200 && status < 300),
+  transformResponse: [].concat(axiosClient.defaults.transformResponse, (data, _headers, status) =>
+    status === 409 ? { slotConflict: true } : data)
+};
 
 const ChatAvailabilityResults = ({ item, active, onChoose, onLoadMore, loading, busy, canLoadMore }) => {
   const groups = useMemo(() => {
@@ -23,7 +29,7 @@ const ChatAvailabilityResults = ({ item, active, onChoose, onLoadMore, loading, 
 
   return <div className="mt-3 space-y-3" aria-busy={loading}>
     {groups.map(([date, options]) => <div key={date} className="space-y-1.5">
-      <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">{date.split('-').reverse().join('/')}</p>
+      <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">{displayDate(date)}</p>
       {options.map(({ option, number }) => <button
         key={slotKey(option)}
         type="button"
@@ -62,13 +68,33 @@ const ChatSession = ({ user, isAuthenticated }) => {
   const [pendingBooking, setPendingBooking] = useState(null);
   const [phase, setPhase] = useState('chat');
   const [selectionContext, setSelectionContext] = useState(null);
-  const activeSearch = useMemo(() => messages.findLast((item) => item.searchId), [messages]);
+  const activeSearch = useMemo(() => messages.findLast((item) => item.searchId || item.closesSearch), [messages]);
   const sessionRequest = useRef(null);
   useEffect(() => {
     const controller = new AbortController();
     sessionRequest.current = controller;
     return () => controller.abort();
   }, []);
+
+  const suggestAlternatives = async ({ option, searchId, optionId }, signal) => {
+    const taken = `Ca ${option.timeSlot} ngày ${displayDate(option.date)} vừa có người giữ hoặc đặt.`;
+    let message;
+    try {
+      const { data } = await axiosClient.post('/chat/availability/alternatives', { searchId, optionId }, { signal });
+      const { suggestedDate, ...availability } = data;
+      let suggestion = 'Mình chưa thấy ca khác của bác sĩ này trong khoảng đã tra. Bạn có thể hỏi lịch ngày khác hoặc bác sĩ khác.';
+      if (suggestedDate === option.date) suggestion = 'Bác sĩ này còn các ca sau trong ngày. Bạn muốn chọn ca nào?';
+      else if (suggestedDate) suggestion = `Ngày gần nhất bác sĩ này còn lịch là ${displayDate(suggestedDate)}. Bạn có thể chọn một ca bên dưới.`;
+      message = { content: `${taken} ${suggestion}`, ...availability };
+    } catch (err) {
+      if (signal.aborted) return;
+      setError(err.message);
+      message = { content: `${taken} Bạn hãy tra lại lịch để xem các ca còn trống.`, closesSearch: true };
+    }
+    if (signal.aborted) return;
+    setPendingBooking(null); setSelectionContext(null); setPhase('chat');
+    setMessages((current) => [...current, { ...message, role: 'assistant', localOnly: true }]);
+  };
 
   const createHold = async (booking) => {
     const { signal } = sessionRequest.current;
@@ -81,12 +107,16 @@ const ChatSession = ({ user, isAuthenticated }) => {
         patientName: user.fullName,
         patientPhone: booking.phone,
         symptomsNote: booking.symptoms
-      }, { signal });
+      }, { ...holdResponseConfig, signal });
       if (signal.aborted) return;
+      if (response.slotConflict) {
+        await suggestAlternatives(booking, signal);
+        return;
+      }
       dispatch(selectDoctor({ id: booking.option.doctorId, doctorId: booking.option.doctorId, name: booking.option.doctorName, specialty: booking.option.specialty, fee: booking.option.fee }));
       dispatch(selectDate(booking.option.date)); dispatch(selectSlot(booking.option.timeSlot));
       dispatch(setPatientInfo({ fullName: user.fullName, phone: booking.phone, email: user.email || '', symptoms: booking.symptoms }));
-      dispatch(setHoldingInfo(response.data)); dispatch(setStep(3));
+      dispatch(setHoldingInfo({ ...response.data, paymentMode: 'demo' })); dispatch(setStep(3));
       setMessages((current) => [...current, { role: 'assistant', content: 'Đã giữ chỗ. Vui lòng xem thông tin và xác nhận cọc mô phỏng.', localOnly: true }]);
       setPendingBooking(null); setPhase('chat'); setOpen(false); navigate('/booking');
     } catch (err) {
@@ -104,7 +134,7 @@ const ChatSession = ({ user, isAuthenticated }) => {
       const { data } = await axiosClient.post('/chat/availability/selections', { searchId: item.searchId, optionId }, { signal: sessionRequest.current.signal });
       const { option } = data;
       setSelectionContext({ searchId: item.searchId, doctorId: option.doctorId });
-      setPendingBooking({ option }); setPhase('symptoms'); setInput('');
+      setPendingBooking({ option, searchId: item.searchId, optionId }); setPhase('symptoms'); setInput('');
       setMessages((current) => [...current, { role: 'assistant', content: `Bạn chọn ${option.doctorName}, ${option.date} lúc ${option.timeSlot}. Bạn cho mình biết lý do khám hoặc triệu chứng nhé. Thông tin này sẽ được gửi trực tiếp đến hệ thống đặt lịch.`, localOnly: true }]);
     } catch (err) { setError(err.message); }
   };
@@ -193,7 +223,7 @@ const ChatSession = ({ user, isAuthenticated }) => {
     dispatch(selectDoctor({ id: hold.doctorId?._id, doctorId: hold.doctorId?._id, name: hold.doctorId?.fullName, specialty: hold.doctorProfileId?.specialtyId?.name, fee: hold.fee }));
     dispatch(selectDate(hold.date)); dispatch(selectSlot(hold.timeSlot));
     dispatch(setPatientInfo({ fullName: hold.patientName, phone: hold.patientPhone }));
-    dispatch(setHoldingInfo({ appointmentId: hold._id, holdingExpiresAt: hold.holdingExpiresAt }));
+    dispatch(setHoldingInfo({ appointmentId: hold._id, holdingExpiresAt: hold.holdingExpiresAt, depositAmount: hold.depositAmount, paymentMode: 'demo' }));
     dispatch(setStep(3)); setOpen(false); navigate('/booking');
   };
   return <>

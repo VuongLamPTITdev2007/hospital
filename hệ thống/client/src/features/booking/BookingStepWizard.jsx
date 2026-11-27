@@ -8,7 +8,7 @@ const STEPS = [
   { id: 4, label: 'Phiếu Khám Xác Nhận', icon: CheckCircle2 }
 ];
 
-const BookingStepWizard = ({ currentStep }) => {
+const BookingStepWizard = ({ currentStep, demoPayment }) => {
   return (
     <div className="w-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 shadow-sm">
       <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -40,7 +40,7 @@ const BookingStepWizard = ({ currentStep }) => {
                       : 'text-slate-400 dark:text-slate-500'
                   }`}
                 >
-                  {s.label}
+                  {demoPayment && s.id === 3 ? 'Giữ Chỗ & Cọc Mô Phỏng' : s.label}
                 </span>
                 <span className="sm:hidden text-[10px] mt-1 font-medium text-slate-500">
                   Bước {s.id}

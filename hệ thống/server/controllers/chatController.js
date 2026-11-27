@@ -1,5 +1,5 @@
 const { complete } = require('../services/openRouterClient');
-const { schemas, execute, getAvailabilityPage, readSelectionIntent } = require('../services/chatTools');
+const { schemas, execute, getAvailabilityPage, getAlternativeSlots, readSelectionIntent } = require('../services/chatTools');
 const { shouldSelectDisplayedSlot, readSpokenSelection } = require('../services/chatSelectionIntent');
 const { vietnamDate } = require('../services/availabilityService');
 const { beginSearch, signSearchResult, readSearchResult } = require('../services/chatSearchTokens');
@@ -90,12 +90,27 @@ exports.loadAvailabilityPage = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-exports.selectAvailabilityOption = (req, res) => {
-  const { searchId, optionId } = req.body || {};
+const readSelectedOption = ({ searchId, optionId } = {}) => {
   const selection = readSearchResult('chat-slot', optionId);
-  if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
+  if (!selection.result) return selection;
   if (selection.result.searchId !== searchId) {
-    return res.status(400).json({ success: false, message: 'Lịch này thuộc kết quả tra khác. Hãy chọn lịch từ lượt tra mới nhất.' });
+    return { status: 400, message: 'Lịch này thuộc kết quả tra khác. Hãy chọn lịch từ lượt tra mới nhất.' };
   }
+  return selection;
+};
+
+exports.selectAvailabilityOption = (req, res) => {
+  const selection = readSelectedOption(req.body || {});
+  if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
   res.json({ success: true, data: { option: selection.result.data } });
+};
+
+exports.loadAvailabilityAlternatives = async (req, res, next) => {
+  try {
+    const selection = readSelectedOption(req.body || {});
+    if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
+
+    const { options, suggestedDate } = await getAlternativeSlots(selection.result.data);
+    res.json({ success: true, data: { ...publishPage(options, null, beginSearch()), suggestedDate } });
+  } catch (error) { next(error); }
 };

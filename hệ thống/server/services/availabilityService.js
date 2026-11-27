@@ -123,4 +123,4 @@ const findAvailableSlots = async (doctors, filters, after) => {
   return options.sort(compareSlots);
 };
 
-module.exports = { getAvailabilityFilters, findAvailableSlots, vietnamDate, fold };
+module.exports = { getAvailabilityFilters, findAvailableSlots, vietnamDate, addDays, fold };

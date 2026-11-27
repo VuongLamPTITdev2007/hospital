@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { resetBooking } from '../../store/slices/bookingSlice';
 import BookingStepWizard from './BookingStepWizard';
@@ -11,8 +11,13 @@ import { CalendarCheck, History, Sparkles, Clock, ShieldCheck } from 'lucide-rea
 
 const BookingPage = () => {
   const dispatch = useDispatch();
-  const { step } = useSelector((state) => state.booking);
+  const { step, holdingInfo } = useSelector((state) => state.booking);
   const [activeTab, setActiveTab] = useState('booking'); // 'booking' | 'history'
+  const demoPayment = holdingInfo?.paymentMode === 'demo';
+
+  useEffect(() => {
+    if (step === 3 && holdingInfo?.paymentMode === 'demo') setActiveTab('booking');
+  }, [step, holdingInfo]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -73,7 +78,7 @@ const BookingPage = () => {
       {activeTab === 'booking' ? (
         <div className="space-y-6">
           {/* Multi-step Stepper */}
-          <BookingStepWizard currentStep={step} />
+          <BookingStepWizard currentStep={step} demoPayment={demoPayment} />
 
           {/* Step 1: Chọn Bác sĩ, Ngày & Khung giờ Slot */}
           {step === 1 && <DoctorSlotSelector />}
@@ -82,7 +87,7 @@ const BookingPage = () => {
           {step === 2 && <PatientInfoForm />}
 
           {/* Step 3: Giữ chỗ 5 phút & Thanh toán cọc VietQR */}
-          {step === 3 && <HoldPaymentStep />}
+          {step === 3 && <HoldPaymentStep key={demoPayment ? holdingInfo.appointmentId : 'manual'} />}
 
           {/* Step 4: Phiếu xác nhận đặt lịch & E-Ticket Pass */}
           {step === 4 && (

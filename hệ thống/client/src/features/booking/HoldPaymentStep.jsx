@@ -26,6 +26,7 @@ const HoldPaymentStep = () => {
   const dispatch = useDispatch();
   const { selectedDoctor, selectedDate, selectedSlot, patientInfo, holdingInfo, depositAmount } =
     useSelector((state) => state.booking);
+  const demoPayment = holdingInfo?.paymentMode === 'demo';
 
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -74,8 +75,8 @@ const HoldPaymentStep = () => {
       setErrorMessage('');
       const apptId = holdingInfo?.appointmentId || holdingInfo?.appointment?._id;
       const res = await axiosClient.post(`/appointments/${apptId}/confirm`, {
-        transactionCode: `QR-${Date.now()}`,
-        paymentMethod: 'VietQR'
+        transactionCode: `${demoPayment ? 'DEMO' : 'QR'}-${Date.now()}`,
+        paymentMethod: demoPayment ? 'demo' : 'VietQR'
       });
 
       if (res.success) {
@@ -187,7 +188,7 @@ const HoldPaymentStep = () => {
           <div className="flex items-center space-x-2">
             <CreditCard className="w-5 h-5 text-primary-600" />
             <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              Quét Mã VietQR Chuyển Khoản Cọc (50.000 VNĐ)
+              {demoPayment ? 'Xác nhận cọc mô phỏng' : 'Quét Mã VietQR Chuyển Khoản Cọc (50.000 VNĐ)'}
             </h2>
           </div>
           <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300">
@@ -195,7 +196,15 @@ const HoldPaymentStep = () => {
           </span>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        {demoPayment ? (
+          <div className="mt-6 space-y-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            <p>Đây là cọc mô phỏng. Bạn chỉ cần bấm xác nhận trên trang này.</p>
+            <p>Bác sĩ <strong>{selectedDoctor?.name}</strong></p>
+            <p>Thời gian khám <strong>{selectedSlot}</strong> ngày <strong>{selectedDate}</strong></p>
+            <p>Người khám <strong>{patientInfo.fullName}</strong></p>
+            <p>Tiền cọc mô phỏng <strong>{Number(holdingInfo.depositAmount ?? depositAmount).toLocaleString('vi-VN')} VNĐ</strong></p>
+          </div>
+        ) : <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           {/* Ảnh VietQR chuẩn */}
           <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
             <div className="relative p-2 bg-white rounded-xl shadow-md border border-slate-200">
@@ -270,7 +279,7 @@ const HoldPaymentStep = () => {
               <p>• Người khám: <strong>{patientInfo.fullName}</strong> ({patientInfo.phone})</p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Action Buttons */}
         <div className="mt-8 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -292,7 +301,7 @@ const HoldPaymentStep = () => {
             onClick={handleConfirmPayment}
             className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
           >
-            <CheckCircle className="w-4 h-4 mr-2" /> Xác nhận đã chuyển khoản cọc
+            <CheckCircle className="w-4 h-4 mr-2" /> {demoPayment ? 'Xác nhận cọc demo' : 'Xác nhận đã chuyển khoản cọc'}
           </Button>
         </div>
       </div>
