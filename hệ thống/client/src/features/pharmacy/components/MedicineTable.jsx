@@ -12,6 +12,7 @@ const MedicineTable = ({
   error,
   onRetry,
   canManage,
+  canViewStock = false,
   onAdd,
   onEdit,
   onDelete,
@@ -26,6 +27,11 @@ const MedicineTable = ({
 }) => {
   const summaryCards = useMemo(() => {
     const totalMedicines = summary?.totalMedicines ?? pagination.total ?? medicines.length;
+    if (!canViewStock) {
+      return [
+        { label: 'Tổng danh mục thuốc', value: totalMedicines, color: 'text-slate-800 dark:text-slate-100', icon: Package }
+      ];
+    }
     const lowStockCount = summary?.lowStockCount ?? medicines.filter((m) => m.stockQuantity <= m.minStockAlert).length;
     const totalUnits = summary?.totalUnits ?? medicines.reduce((sum, m) => sum + (m.stockQuantity || 0), 0);
     return [
@@ -33,7 +39,7 @@ const MedicineTable = ({
       { label: 'Thuốc sắp hết hàng', value: lowStockCount, color: 'text-red-600 dark:text-red-400', icon: AlertTriangle },
       { label: 'Tổng số lượng tồn', value: totalUnits.toLocaleString('vi-VN'), color: 'text-emerald-600 dark:text-emerald-400', icon: Package }
     ];
-  }, [medicines, summary, pagination.total]);
+  }, [medicines, summary, pagination.total, canViewStock]);
 
   if (error) {
     return (
@@ -49,7 +55,7 @@ const MedicineTable = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 ${canViewStock ? 'sm:grid-cols-3' : 'sm:grid-cols-1 max-w-sm'} gap-4`}>
         {summaryCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -88,10 +94,12 @@ const MedicineTable = ({
               ))}
             </select>
 
-            <label className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input type="checkbox" checked={onlyLowStock} onChange={(e) => onLowStockChange?.(e.target.checked)} />
-              <span>Sắp hết hàng</span>
-            </label>
+            {canViewStock && (
+              <label className="inline-flex items-center space-x-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input type="checkbox" checked={onlyLowStock} onChange={(e) => onLowStockChange?.(e.target.checked)} />
+                <span>Sắp hết hàng</span>
+              </label>
+            )}
           </div>
 
           {canManage && (
@@ -116,14 +124,14 @@ const MedicineTable = ({
                     <th className="py-3 px-3">Tên thuốc</th>
                     <th className="py-3 px-3">Đơn vị</th>
                     <th className="py-3 px-3 text-right">Đơn giá</th>
-                    <th className="py-3 px-3 text-center">Tồn kho</th>
+                    {canViewStock && <th className="py-3 px-3 text-center">Tồn kho</th>}
                     <th className="py-3 px-3">Cách dùng</th>
                     {canManage && <th className="py-3 px-3 text-right">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {medicines.map((med) => {
-                    const isLow = med.stockQuantity <= med.minStockAlert;
+                    const isLow = canViewStock && med.stockQuantity <= med.minStockAlert;
                     return (
                       <tr key={med._id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
                         <td className="py-3 px-3">
@@ -134,12 +142,14 @@ const MedicineTable = ({
                         <td className="py-3 px-3 text-right font-semibold text-primary-600 dark:text-primary-400">
                           {med.price.toLocaleString('vi-VN')} đ
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isLow ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>
-                            {med.stockQuantity} {med.unit}
-                          </span>
-                          {isLow && <span className="block text-[11px] text-red-500 mt-0.5">Sắp hết</span>}
-                        </td>
+                        {canViewStock && (
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isLow ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'}`}>
+                              {med.stockQuantity} {med.unit}
+                            </span>
+                            {isLow && <span className="block text-[11px] text-red-500 mt-0.5">Sắp hết</span>}
+                          </td>
+                        )}
                         <td className="py-3 px-3 text-xs text-slate-500 max-w-xs">{med.usageInstructions}</td>
                         {canManage && (
                           <td className="py-3 px-3 text-right space-x-1">

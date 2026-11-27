@@ -33,6 +33,7 @@ const PharmacyInventoryPage = () => {
   const canManageInventory = role === 'pharmacist' || role === 'admin';
   const canPrescribe = role === 'doctor' || role === 'admin';
   const canDispense = role === 'pharmacist' || role === 'admin';
+  const canViewStock = role === 'pharmacist' || role === 'doctor' || role === 'admin';
 
   const [activeTab, setActiveTab] = useState('inventory');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,7 +67,7 @@ const PharmacyInventoryPage = () => {
       const params = { page, limit: 10 };
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (selectedUnit !== 'Tất cả') params.unit = selectedUnit;
-      if (onlyLowStock) params.lowStock = 'true';
+      if (canViewStock && onlyLowStock) params.lowStock = 'true';
 
       const res = await fetchMedicines(params);
       setMedicines(res.data || []);
@@ -82,7 +83,7 @@ const PharmacyInventoryPage = () => {
     } finally {
       setMedicinesLoading(false);
     }
-  }, [page, debouncedSearch, selectedUnit, onlyLowStock]);
+  }, [page, debouncedSearch, selectedUnit, onlyLowStock, canViewStock]);
 
   const loadPrescribeMedicines = useCallback(async () => {
     if (!isAuthenticated || !canPrescribe) return;
@@ -267,6 +268,7 @@ const PharmacyInventoryPage = () => {
             error={medicinesError}
             onRetry={refetchMedicines}
             canManage={canManageInventory}
+            canViewStock={canViewStock}
             onAdd={handleOpenAdd}
             onEdit={handleOpenEdit}
             onDelete={handleDeleteMedicine}

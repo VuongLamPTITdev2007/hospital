@@ -48,6 +48,36 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+// Middleware xác thực token tùy chọn (cho endpoint public có phân tầng dữ liệu theo vai trò)
+const optionalVerifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'medcare_super_secret_jwt_key_2026_vibecoding'
+    );
+    const user = await User.findById(decoded.id).select('role email fullName');
+    req.user = user
+      ? {
+          id: String(user._id),
+          role: user.role,
+          email: user.email,
+          fullName: user.fullName
+        }
+      : null;
+  } catch {
+    req.user = null;
+  }
+
+  next();
+};
+
 // Middleware kiểm tra phân quyền người dùng (RBAC)
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
@@ -61,4 +91,4 @@ const authorizeRoles = (...allowedRoles) => {
   };
 };
 
-module.exports = { verifyToken, authorizeRoles };
+module.exports = { verifyToken, optionalVerifyToken, authorizeRoles };
