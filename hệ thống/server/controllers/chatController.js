@@ -1,6 +1,13 @@
 const { complete } = require('../services/openRouterClient');
 const { schemas, execute, getAvailabilityPage } = require('../services/chatTools');
 const { vietnamDate } = require('../services/availabilityService');
+const { beginSearch, signSearchResult, readSearchResult } = require('../services/chatSearchTokens');
+
+const publishPage = (options, nextPage, search) => ({
+  searchId: search.searchId,
+  options: options.map((option) => ({ ...option, optionId: signSearchResult('chat-slot', search, option) })),
+  nextPage: nextPage ? { cursor: signSearchResult('chat-page', search, nextPage) } : null
+});
 
 exports.sendMessage = async (req, res, next) => {
   try {
@@ -18,7 +25,8 @@ exports.sendMessage = async (req, res, next) => {
       'Công cụ chỉ tra cứu. Bệnh nhân chọn nút để đặt lịch. Không khẳng định đã giữ chỗ hoặc thanh toán. Không chẩn đoán, kê thuốc hay yêu cầu nhập thông tin cá nhân hoặc bệnh án trong chat.'
     ].join('\n');
     const messages = [{ role: 'system', content: instructions }, ...safeHistory, { role: 'user', content: message.trim() }];
-    let options = []; let nextPage = null; let reply = '';
+    let availability = { searchId: null, searchFilters: null, options: [], nextPage: null };
+    let reply = '';
     for (let round = 0; round < 4; round += 1) {
       const assistant = await complete(messages, schemas);
       if (!assistant.tool_calls?.length) { reply = assistant.content || ''; break; }
@@ -28,25 +36,35 @@ exports.sendMessage = async (req, res, next) => {
         let result;
         try { result = await execute(call.function?.name, JSON.parse(call.function?.arguments || '{}')); }
         catch { result = { error: 'Không thể tra lịch lúc này. Hãy thử lại.' }; }
-        const { nextPage: continuation, ...toolResult } = result;
+        const { nextPage, searchFilters, ...toolResult } = result;
         if (Array.isArray(toolResult.options)) {
-          options = toolResult.options;
-          nextPage = continuation;
+          availability = { ...publishPage(toolResult.options, nextPage, beginSearch()), searchFilters };
         }
         messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(toolResult) });
       }
     }
-    res.json({ success: true, data: { reply: reply || 'Mình chưa thể trả lời lúc này. Bạn thử lại nhé.', options, nextPage } });
+    res.json({ success: true, data: { reply: reply || 'Mình chưa thể trả lời lúc này. Bạn thử lại nhé.', ...availability } });
   } catch (error) { next(error); }
 };
 
 exports.loadAvailabilityPage = async (req, res, next) => {
   try {
-    const { filters, after } = req.body || {};
-    if (!filters || !after) return res.status(400).json({ success: false, message: 'Thiếu thông tin để tải thêm lịch.' });
+    const cursor = readSearchResult('chat-page', req.body?.cursor);
+    if (!cursor.result) return res.status(cursor.status).json({ success: false, message: cursor.message });
 
+    const { searchId, exp, data: { filters, after } } = cursor.result;
     const page = await getAvailabilityPage(filters, after);
     if (page.error) return res.status(400).json({ success: false, message: page.error });
-    res.json({ success: true, data: { options: page.options, nextPage: page.nextPage } });
+    res.json({ success: true, data: publishPage(page.options, page.nextPage, { searchId, exp }) });
   } catch (error) { next(error); }
+};
+
+exports.selectAvailabilityOption = (req, res) => {
+  const { searchId, optionId } = req.body || {};
+  const selection = readSearchResult('chat-slot', optionId);
+  if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
+  if (selection.result.searchId !== searchId) {
+    return res.status(400).json({ success: false, message: 'Lịch này thuộc kết quả tra khác. Hãy chọn lịch từ lượt tra mới nhất.' });
+  }
+  res.json({ success: true, data: { option: selection.result.data } });
 };

@@ -1,5 +1,6 @@
 const express = require('express');
-const { sendMessage, loadAvailabilityPage } = require('../controllers/chatController');
+const { sendMessage, loadAvailabilityPage, selectAvailabilityOption } = require('../controllers/chatController');
+const { verifyToken, authorizeRoles } = require('../middlewares/auth');
 const router = express.Router();
 const requests = new Map();
 const limit = (req, res, next) => {
@@ -13,4 +14,5 @@ const limit = (req, res, next) => {
 };
 router.post('/messages', limit, sendMessage);
 router.post('/availability/pages', limit, loadAvailabilityPage);
+router.post('/availability/selections', limit, verifyToken, authorizeRoles('patient'), selectAvailabilityOption);
 module.exports = router;
