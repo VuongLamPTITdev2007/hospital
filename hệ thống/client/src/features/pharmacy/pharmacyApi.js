@@ -24,6 +24,10 @@ export const fetchPatients = () => {
   return axiosClient.get('/prescriptions/patients');
 };
 
+export const fetchPatientMedicalRecords = (patientId) => {
+  return axiosClient.get(`/records/patient/${patientId}`);
+};
+
 export const createPrescription = (payload) => {
   return axiosClient.post('/prescriptions', payload);
 };
