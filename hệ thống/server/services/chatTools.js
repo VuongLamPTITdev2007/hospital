@@ -1,5 +1,5 @@
 const booking = require('../controllers/appointmentController');
-const { validDate, normalizeSlot } = require('./slotPolicy');
+const { validDate, validSlot, normalizeSlot } = require('./slotPolicy');
 
 const schemas = [{ type: 'function', function: {
   name: 'find_available_doctors',
@@ -19,6 +19,14 @@ const callBooking = async (handler, query) => {
   return body.data;
 };
 const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+
+const getConfiguredSlots = (workingHours, dayOfWeek) => {
+  if (!Array.isArray(workingHours)) return new Set();
+  const schedule = workingHours.find((day) => day?.dayOfWeek === dayOfWeek);
+  if (!Array.isArray(schedule?.slots)) return new Set();
+  return new Set(schedule.slots.map(normalizeSlot).filter(validSlot));
+};
+
 const execute = async (name, args) => {
   if (name === 'search_doctors') {
     const query = args?.query || '';
@@ -31,11 +39,21 @@ const execute = async (name, args) => {
   if (!validDate(date) || typeof query !== 'string' || query.length > 80 || typeof startTime !== 'string' || (startTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime))) return { error: 'Ngày, tên hoặc giờ không hợp lệ.' };
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   if (date < today) return { error: 'Ngày khám đã qua.' };
+  const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   const doctors = await callBooking(booking.getDoctorsForBooking, {});
-  const candidates = doctors.filter((doctor) => !query || fold(`${doctor.name} ${doctor.specialty}`).includes(fold(query.trim()))).slice(0, 50);
-  const entries = await Promise.all(candidates.map(async (doctor) => {
+  const normalizedQuery = fold(query.trim());
+  const candidates = doctors
+    .filter((doctor) => !normalizedQuery || fold(`${doctor.name} ${doctor.specialty}`).includes(normalizedQuery))
+    .map((doctor) => ({ doctor, configuredSlots: getConfiguredSlots(doctor.workingHours, dayOfWeek) }))
+    .filter(({ configuredSlots }) => configuredSlots.size > 0)
+    .slice(0, 50);
+
+  const entries = await Promise.all(candidates.map(async ({ doctor, configuredSlots }) => {
     const result = await callBooking(booking.getAvailableSlots, { doctorId: String(doctor.doctorId), date });
-    return result.slots.filter((slot) => !slot.isBooked && !slot.isPast && (!startTime || normalizeSlot(slot.time).startsWith(`${startTime}-`))).map((slot) => ({ doctorId: String(doctor.doctorId), doctorName: doctor.name, specialty: doctor.specialty, fee: doctor.fee, date, timeSlot: normalizeSlot(slot.time) }));
+    return result.slots
+      .map((slot) => ({ ...slot, timeSlot: normalizeSlot(slot.time) }))
+      .filter(({ timeSlot, isBooked, isPast }) => configuredSlots.has(timeSlot) && !isBooked && !isPast && (!startTime || timeSlot.startsWith(`${startTime}-`)))
+      .map(({ timeSlot }) => ({ doctorId: String(doctor.doctorId), doctorName: doctor.name, specialty: doctor.specialty, fee: doctor.fee, date, timeSlot }));
   }));
   const all = entries.flat();
   return { date, options: all.slice(0, 20), truncated: all.length > 20 };
