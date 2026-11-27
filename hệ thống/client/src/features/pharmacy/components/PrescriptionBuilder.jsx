@@ -1,6 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Pill, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import Button from '../../../components/common/Button';
+import { fetchPatientMedicalRecords } from '../pharmacyApi';
+
+const formatRecordOption = (record) => {
+  const rawDate = record.appointmentId?.date || record.createdAt;
+  const dateText = rawDate ? new Date(rawDate).toLocaleDateString('vi-VN') : 'Chưa rõ ngày';
+  const slotText = record.appointmentId?.timeSlot ? ` (${record.appointmentId.timeSlot})` : '';
+  const diagnosisText = record.diagnosis
+    ? record.diagnosis.length > 55
+      ? `${record.diagnosis.slice(0, 55)}...`
+      : record.diagnosis
+    : 'Chưa có chẩn đoán';
+  const doctorText = record.doctorId?.fullName ? ` — BS. ${record.doctorId.fullName}` : '';
+  return `${dateText}${slotText} | ${diagnosisText}${doctorText}`;
+};
 
 const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
   const availableMedicines = useMemo(
@@ -9,6 +23,9 @@ const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
   );
 
   const [patientId, setPatientId] = useState('');
+  const [recordId, setRecordId] = useState('');
+  const [unprescribedRecords, setUnprescribedRecords] = useState([]);
+  const [recordsLoading, setRecordsLoading] = useState(false);
   const [doctorNotes, setDoctorNotes] = useState('Uống thuốc đúng liều lượng, tái khám khi có dấu hiệu bất thường.');
   const [items, setItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -19,6 +36,60 @@ const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
       setPatientId(patients[0]._id);
     }
   }, [patients, patientId]);
+
+  const loadUnprescribedRecords = useCallback(async (targetPatientId) => {
+    if (!targetPatientId) {
+      setUnprescribedRecords([]);
+      setRecordId('');
+      return;
+    }
+
+    setRecordsLoading(true);
+    try {
+      const res = await fetchPatientMedicalRecords(targetPatientId);
+      const pendingRecords = (res.data || []).filter((record) => !record.prescriptionId);
+      setUnprescribedRecords(pendingRecords);
+      setRecordId((prev) => (pendingRecords.some((r) => r._id === prev) ? prev : ''));
+    } catch {
+      setUnprescribedRecords([]);
+      setRecordId('');
+    } finally {
+      setRecordsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchRecords = async () => {
+      if (!patientId) {
+        setUnprescribedRecords([]);
+        setRecordId('');
+        return;
+      }
+
+      setRecordsLoading(true);
+      setRecordId('');
+      try {
+        const res = await fetchPatientMedicalRecords(patientId);
+        if (!isActive) return;
+        const pendingRecords = (res.data || []).filter((record) => !record.prescriptionId);
+        setUnprescribedRecords(pendingRecords);
+      } catch {
+        if (!isActive) return;
+        setUnprescribedRecords([]);
+      } finally {
+        if (isActive) {
+          setRecordsLoading(false);
+        }
+      }
+    };
+
+    fetchRecords();
+    return () => {
+      isActive = false;
+    };
+  }, [patientId]);
 
   useEffect(() => {
     if (items.length === 0 && availableMedicines.length > 0) {
@@ -79,7 +150,7 @@ const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
 
     setSubmitting(true);
     try {
-      await onCreatePrescription({
+      const payload = {
         patientId,
         doctorNotes: doctorNotes.trim(),
         items: items.map((item) => ({
@@ -87,8 +158,20 @@ const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
           quantity: Number(item.quantity),
           dosage: item.dosage.trim()
         }))
+      };
+      if (recordId) {
+        payload.recordId = recordId;
+      }
+
+      await onCreatePrescription(payload);
+      setMessage({
+        type: 'success',
+        text: recordId
+          ? 'Kê đơn thuốc thành công, đã gắn vào hồ sơ bệnh án và chuyển xuống kho dược!'
+          : 'Kê đơn thuốc thành công và đã chuyển xuống kho dược!'
       });
-      setMessage({ type: 'success', text: 'Kê đơn thuốc thành công và đã chuyển xuống kho dược!' });
+      setRecordId('');
+      await loadUnprescribedRecords(patientId);
       const first = availableMedicines[0];
       setItems(first ? [{ medicineId: first._id, quantity: 1, dosage: first.usageInstructions || 'Sáng 1 viên, tối 1 viên' }] : []);
     } catch (err) {
@@ -144,6 +227,40 @@ const PrescriptionBuilder = ({ medicines, patients, onCreatePrescription }) => {
             onChange={(e) => setDoctorNotes(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
           />
+        </div>
+
+        <div className="space-y-1 md:col-span-2">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Hồ sơ bệnh án chưa có đơn (tùy chọn liên kết)
+          </label>
+          <select
+            value={recordId}
+            onChange={(e) => setRecordId(e.target.value)}
+            disabled={recordsLoading || !patientId}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 disabled:opacity-60"
+          >
+            {recordsLoading ? (
+              <option value="">Đang tải danh sách hồ sơ bệnh án...</option>
+            ) : unprescribedRecords.length === 0 ? (
+              <option value="">Không có hồ sơ bệnh án nào chưa kê đơn (kê đơn lẻ)</option>
+            ) : (
+              <>
+                <option value="">-- Không gắn hồ sơ bệnh án (kê đơn lẻ) --</option>
+                {unprescribedRecords.map((record) => (
+                  <option key={record._id} value={record._id}>
+                    {formatRecordOption(record)}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {recordsLoading
+              ? 'Đang kiểm tra các ca khám chưa kê đơn của bệnh nhân...'
+              : unprescribedRecords.length > 0
+                ? `Có ${unprescribedRecords.length} hồ sơ bệnh án chưa có đơn thuốc. Chọn để tự động gắn đơn vào bệnh án.`
+                : 'Bệnh nhân hiện chưa có hồ sơ bệnh án nào đang chờ kê đơn.'}
+          </p>
         </div>
       </div>
 

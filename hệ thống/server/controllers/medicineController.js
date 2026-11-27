@@ -1,12 +1,18 @@
 const Medicine = require('../models/Medicine');
 
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const MEDICAL_STAFF_ROLES = ['admin', 'doctor', 'pharmacist'];
+const isMedicalStaffUser = (user) => Boolean(user && MEDICAL_STAFF_ROLES.includes(user.role));
+
 exports.getMedicines = async (req, res, next) => {
   try {
-    const { search, unit, lowStock } = req.query;
+    const { search, unit, lowStock, page = 1, limit = 10 } = req.query;
+    const isMedicalStaff = isMedicalStaffUser(req.user);
     const filter = {};
 
     if (search && search.trim()) {
-      const keyword = search.trim();
+      const keyword = escapeRegex(search.trim());
       filter.$or = [
         { name: { $regex: keyword, $options: 'i' } },
         { activeIngredient: { $regex: keyword, $options: 'i' } }
@@ -17,15 +23,60 @@ exports.getMedicines = async (req, res, next) => {
       filter.unit = unit.trim();
     }
 
-    if (lowStock === 'true') {
+    if (isMedicalStaff && lowStock === 'true') {
       filter.$expr = { $lte: ['$stockQuantity', '$minStockAlert'] };
     }
 
-    const medicines = await Medicine.find(filter).sort({ createdAt: -1 });
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    const findQuery = Medicine.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
+    if (!isMedicalStaff) {
+      findQuery.select('-stockQuantity -minStockAlert');
+    }
+
+    const summaryPromise = isMedicalStaff
+      ? Medicine.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalMedicines: { $sum: 1 },
+              lowStockCount: {
+                $sum: {
+                  $cond: [{ $lte: ['$stockQuantity', '$minStockAlert'] }, 1, 0]
+                }
+              },
+              totalUnits: { $sum: '$stockQuantity' }
+            }
+          }
+        ])
+      : Medicine.countDocuments({});
+
+    const [medicines, total, summaryResult] = await Promise.all([
+      findQuery,
+      Medicine.countDocuments(filter),
+      summaryPromise
+    ]);
+
+    const summary = isMedicalStaff
+      ? summaryResult[0]
+        ? {
+            totalMedicines: summaryResult[0].totalMedicines,
+            lowStockCount: summaryResult[0].lowStockCount,
+            totalUnits: summaryResult[0].totalUnits
+          }
+        : { totalMedicines: 0, lowStockCount: 0, totalUnits: 0 }
+      : { totalMedicines: summaryResult };
 
     res.status(200).json({
       success: true,
       count: medicines.length,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      summary,
       data: medicines
     });
   } catch (error) {
@@ -35,7 +86,12 @@ exports.getMedicines = async (req, res, next) => {
 
 exports.getMedicineById = async (req, res, next) => {
   try {
-    const medicine = await Medicine.findById(req.params.id);
+    const isMedicalStaff = isMedicalStaffUser(req.user);
+    const query = Medicine.findById(req.params.id);
+    if (!isMedicalStaff) {
+      query.select('-stockQuantity -minStockAlert');
+    }
+    const medicine = await query;
 
     if (!medicine) {
       return res.status(404).json({
@@ -79,8 +135,9 @@ exports.createMedicine = async (req, res, next) => {
       });
     }
 
+    const escapedName = escapeRegex(name.trim());
     const existingMedicine = await Medicine.findOne({
-      name: { $regex: `^${name.trim()}$`, $options: 'i' }
+      name: { $regex: `^${escapedName}$`, $options: 'i' }
     });
 
     if (existingMedicine) {
@@ -143,9 +200,10 @@ exports.updateMedicine = async (req, res, next) => {
     }
 
     if (name && name.trim() && name.trim().toLowerCase() !== medicine.name.toLowerCase()) {
+      const escapedName = escapeRegex(name.trim());
       const duplicate = await Medicine.findOne({
         _id: { $ne: medicine._id },
-        name: { $regex: `^${name.trim()}$`, $options: 'i' }
+        name: { $regex: `^${escapedName}$`, $options: 'i' }
       });
 
       if (duplicate) {
