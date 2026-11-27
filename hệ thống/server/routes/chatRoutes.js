@@ -1,5 +1,5 @@
 const express = require('express');
-const { sendMessage } = require('../controllers/chatController');
+const { sendMessage, loadAvailabilityPage } = require('../controllers/chatController');
 const router = express.Router();
 const requests = new Map();
 const limit = (req, res, next) => {
@@ -12,4 +12,5 @@ const limit = (req, res, next) => {
   next();
 };
 router.post('/messages', limit, sendMessage);
+router.post('/availability/pages', limit, loadAvailabilityPage);
 module.exports = router;

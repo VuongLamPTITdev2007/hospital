@@ -1,10 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Send, X } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { useAuth } from '../../context/AuthContext';
 import { selectDoctor, selectDate, selectSlot, setPatientInfo, setHoldingInfo, setStep } from '../../store/slices/bookingSlice';
+
+const slotKey = ({ doctorId, date, timeSlot }) => `${doctorId}-${date}-${timeSlot}`;
+
+const ChatAvailabilityResults = ({ item, onChoose, onLoadMore, loading, busy, canLoadMore }) => {
+  const groups = useMemo(() => {
+    const byDate = new Map();
+    for (const option of item.options || []) {
+      if (!byDate.has(option.date)) byDate.set(option.date, []);
+      byDate.get(option.date).push(option);
+    }
+    return [...byDate];
+  }, [item.options]);
+
+  if (!groups.length) return null;
+
+  return <div className="mt-3 space-y-3" aria-busy={loading}>
+    {groups.map(([date, options]) => <div key={date} className="space-y-1.5">
+      <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">{date.split('-').reverse().join('/')}</p>
+      {options.map((option) => <button
+        key={slotKey(option)}
+        type="button"
+        disabled={busy}
+        onClick={() => onChoose(option)}
+        className="block w-full rounded-lg border border-primary-500 px-2 py-1.5 text-left text-xs text-primary-700 disabled:opacity-60 dark:text-primary-300"
+      >
+        <span className="font-semibold">{option.timeSlot} · {option.doctorName}</span>
+        <span className="mt-0.5 block">{option.specialty} · {Number(option.fee || 0).toLocaleString('vi-VN')} đ</span>
+      </button>)}
+    </div>)}
+    {item.pageError && <p role="alert" className="text-xs text-red-600 dark:text-red-300">{item.pageError}</p>}
+    {item.pageExhausted && <p className="text-xs text-slate-600 dark:text-slate-200">Không còn lịch trống khác trong khoảng đã tra.</p>}
+    {item.nextPage && <button
+      type="button"
+      disabled={!canLoadMore}
+      onClick={() => onLoadMore(item)}
+      className="rounded-lg border border-primary-500 px-3 py-2 text-xs font-semibold text-primary-700 disabled:opacity-60 dark:text-primary-300"
+    >{loading ? 'Đang tải thêm...' : item.pageError ? 'Thử tải lại' : 'Xem thêm'}</button>}
+  </div>;
+};
 
 const ChatWidget = () => {
   const { user, isAuthenticated } = useAuth();
@@ -14,6 +53,7 @@ const ChatWidget = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(null);
   const [error, setError] = useState('');
   const [retryText, setRetryText] = useState('');
   const [holds, setHolds] = useState([]);
@@ -70,10 +110,34 @@ const ChatWidget = () => {
     setInput(''); setError(''); setBusy(true); setRetryText('');
     try {
       const response = await axiosClient.post('/chat/messages', { message: content, history }, { timeout: 110000 });
-      setMessages((current) => [...current, { role: 'assistant', content: response.data.reply, options: response.data.options || [] }]);
+      const { reply, options, nextPage } = response.data;
+      setMessages((current) => [...current, { role: 'assistant', content: reply, options, nextPage }]);
     } catch (err) { setError(err.message); setRetryText(content); }
     finally { setBusy(false); }
   };
+
+  const loadMore = async (item) => {
+    if (busy || phase !== 'chat' || !item.nextPage) return;
+    setLoadingPage(item); setBusy(true);
+    try {
+      const { data } = await axiosClient.post('/chat/availability/pages', item.nextPage);
+      setMessages((current) => current.map((message) => {
+        if (message !== item) return message;
+        const existing = new Set(message.options.map(slotKey));
+        const additional = data.options.filter((option) => !existing.has(slotKey(option)));
+        return {
+          ...message,
+          options: [...message.options, ...additional],
+          nextPage: data.nextPage,
+          pageError: '',
+          pageExhausted: !additional.length && !data.nextPage
+        };
+      }));
+    } catch (err) {
+      setMessages((current) => current.map((message) => message === item ? { ...message, pageError: err.message } : message));
+    } finally { setBusy(false); setLoadingPage(null); }
+  };
+
   const choose = (option) => {
     if (!isAuthenticated) { setError('Vui lòng đăng nhập bằng tài khoản bệnh nhân trước khi đặt lịch.'); return; }
     if (user?.role !== 'patient') { setError('Vui lòng dùng tài khoản bệnh nhân để đặt lịch.'); return; }
@@ -99,8 +163,11 @@ const ChatWidget = () => {
       <header className="flex items-center justify-between border-b p-4"><div><strong>Trợ lý MedCare</strong><p className="text-xs text-slate-500">Tra cứu bác sĩ và lịch khám</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Đóng trợ lý"><X /></button></header>
       <div className="flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite">
         <p className="text-sm">Chào bạn! Tôi là trợ lý Medcare, tôi có thể giúp gì được cho bạn?</p>
-        {messages.map((item, index) => <div key={index} className={`rounded-xl p-3 text-sm ${item.role === 'user' ? 'ml-6 bg-primary-600 text-white' : 'mr-6 bg-slate-100 dark:bg-slate-700'}`}><p className="whitespace-pre-wrap">{item.content}</p>{item.options?.map((option) => <button key={`${option.doctorId}-${option.date}-${option.timeSlot}`} type="button" onClick={() => choose(option)} className="mt-2 block w-full rounded-lg border border-primary-500 p-2 text-left text-xs text-primary-700 dark:text-primary-300">{option.doctorName} · {option.specialty} · {option.date} · {option.timeSlot} · {Number(option.fee || 0).toLocaleString('vi-VN')} đ</button>)}</div>)}
-        {busy && <p className="text-sm">Đang xử lý...</p>}
+        {messages.map((item, index) => <div key={index} className={`rounded-xl p-3 text-sm ${item.role === 'user' ? 'ml-6 bg-primary-600 text-white' : 'mr-6 bg-slate-100 dark:bg-slate-700'}`}>
+          <p className="whitespace-pre-wrap">{item.content}</p>
+          {item.options?.length > 0 && <ChatAvailabilityResults item={item} onChoose={choose} onLoadMore={loadMore} loading={loadingPage === item} busy={busy} canLoadMore={!busy && phase === 'chat'} />}
+        </div>)}
+        {busy && !loadingPage && <p className="text-sm">Đang xử lý...</p>}
         {error && <p role="alert" className="text-sm text-red-600">{error} {retryText && <button type="button" className="underline" onClick={() => { setInput(retryText); setError(''); }}>Thử lại</button>}</p>}
         {phase === 'holdError' && pendingBooking?.phone && <button type="button" disabled={busy} className="text-sm text-primary-600 underline" onClick={() => createHold(pendingBooking)}>Thử giữ chỗ lại</button>}
         {phase !== 'chat' && <button type="button" disabled={busy} className="block text-sm text-slate-500 underline" onClick={() => { setPendingBooking(null); setPhase('chat'); setInput(''); setError(''); }}>Hủy chọn lịch</button>}

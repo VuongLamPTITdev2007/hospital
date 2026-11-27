@@ -78,7 +78,11 @@ const getConfiguredSlots = (workingHours, dayOfWeek) => {
   return [...new Set(hours.slots.map(normalizeSlot).filter(validSlot))];
 };
 
-const findAvailableSlots = async (doctors, filters) => {
+const compareSlots = (a, b) =>
+  a.date.localeCompare(b.date) || a.timeSlot.slice(0, 5).localeCompare(b.timeSlot.slice(0, 5)) ||
+  a.doctorName.localeCompare(b.doctorName, 'vi') || a.doctorId.localeCompare(b.doctorId) || a.timeSlot.localeCompare(b.timeSlot);
+
+const findAvailableSlots = async (doctors, filters, after) => {
   const { dateFrom, dateTo, dayCount, today, currentTime, now, query, doctorId, startTime, timeFrom, timeTo, minFee, maxFeeExclusive } = filters;
   const candidates = doctors.filter((doctor) =>
     (!doctorId || String(doctor.doctorId) === doctorId) &&
@@ -111,14 +115,12 @@ const findAvailableSlots = async (doctors, filters) => {
         if ((date === today && start <= currentTime) || (startTime && start !== startTime) ||
             (timeFrom && start < timeFrom) || (timeTo && start >= timeTo) || occupied.has(slotKey(id, date, timeSlot))) continue;
 
-        options.push({ doctorId: id, doctorName: doctor.name, specialty: doctor.specialty, fee: doctor.fee, date, timeSlot });
+        const option = { doctorId: id, doctorName: doctor.name, specialty: doctor.specialty, fee: doctor.fee, date, timeSlot };
+        if (!after || compareSlots(option, after) > 0) options.push(option);
       }
     }
   }
-  return options.sort((a, b) =>
-    a.date.localeCompare(b.date) || a.timeSlot.slice(0, 5).localeCompare(b.timeSlot.slice(0, 5)) ||
-    a.doctorName.localeCompare(b.doctorName, 'vi') || a.doctorId.localeCompare(b.doctorId) || a.timeSlot.localeCompare(b.timeSlot)
-  );
+  return options.sort(compareSlots);
 };
 
 module.exports = { getAvailabilityFilters, findAvailableSlots, vietnamDate, fold };

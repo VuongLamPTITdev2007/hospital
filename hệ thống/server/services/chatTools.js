@@ -1,5 +1,8 @@
 const booking = require('../controllers/appointmentController');
 const { getAvailabilityFilters, findAvailableSlots, fold } = require('./availabilityService');
+const { validDate, validSlot } = require('./slotPolicy');
+
+const PAGE_SIZE = 20;
 
 const schemas = [
   {
@@ -46,6 +49,33 @@ const callBooking = async (handler, query) => {
   return body.data;
 };
 
+const getAvailabilityPage = async (args, after) => {
+  const filters = getAvailabilityFilters(args);
+  if (filters.error) return filters;
+  if (after !== undefined && (!after || !validDate(after.date) ||
+      typeof after.timeSlot !== 'string' || !validSlot(after.timeSlot) ||
+      typeof after.doctorId !== 'string' || !/^[a-f0-9]{24}$/.test(after.doctorId) ||
+      typeof after.doctorName !== 'string' || !after.doctorName.trim())) {
+    return { error: 'Vị trí tải thêm lịch không hợp lệ.' };
+  }
+
+  const doctors = await callBooking(booking.getDoctorsForBooking, {});
+  const available = await findAvailableSlots(doctors, filters, after);
+  const { dateFrom, dateTo, earliest, query, doctorId, startTime, timeFrom, timeTo, minFee, maxFeeExclusive } = filters;
+  const options = available.slice(0, earliest ? 1 : PAGE_SIZE);
+  const truncated = !earliest && available.length > PAGE_SIZE;
+  let nextPage = null;
+  if (truncated) {
+    const last = options.at(-1);
+    nextPage = {
+      filters: { dateFrom, dateTo, query, doctorId, startTime, timeFrom, timeTo, minFee, maxFeeExclusive },
+      after: { date: last.date, timeSlot: last.timeSlot, doctorId: last.doctorId, doctorName: last.doctorName }
+    };
+  }
+
+  return { ...(dateFrom === dateTo ? { date: dateFrom } : {}), dateFrom, dateTo, options, truncated, nextPage };
+};
+
 const execute = async (name, args) => {
   if (name === 'search_doctors') {
     const query = args?.query || '';
@@ -60,20 +90,7 @@ const execute = async (name, args) => {
     };
   }
   if (name !== 'find_available_doctors') return { error: 'Công cụ không được hỗ trợ.' };
-
-  const filters = getAvailabilityFilters(args);
-  if (filters.error) return filters;
-  const doctors = await callBooking(booking.getDoctorsForBooking, {});
-  const options = await findAvailableSlots(doctors, filters);
-  const { dateFrom, dateTo, earliest } = filters;
-  const limit = earliest ? 1 : 20;
-  return {
-    ...(dateFrom === dateTo ? { date: dateFrom } : {}),
-    dateFrom,
-    dateTo,
-    options: options.slice(0, limit),
-    truncated: !earliest && options.length > limit
-  };
+  return getAvailabilityPage(args);
 };
 
-module.exports = { schemas, execute };
+module.exports = { schemas, execute, getAvailabilityPage };
