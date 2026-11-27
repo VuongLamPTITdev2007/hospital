@@ -3,6 +3,21 @@ const { getAvailabilityFilters, findAvailableSlots, fold } = require('./availabi
 const { validDate, validSlot } = require('./slotPolicy');
 
 const PAGE_SIZE = 20;
+const partsOfDay = ['morning', 'afternoon', 'evening'];
+
+const readSelectionIntent = (args) => {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return null;
+  const { slotNumber, doctorNumber, doctorName, sameDoctor, date, dayOfMonth, month, startTime, partOfDay, followUp, previousSearch } = args;
+  const isOrdinal = (value) => value === undefined || (Number.isSafeInteger(value) && value > 0);
+  if (!isOrdinal(slotNumber) || !isOrdinal(doctorNumber) || !isOrdinal(dayOfMonth) || dayOfMonth > 31 || !isOrdinal(month) || month > 12 ||
+      (doctorName !== undefined && (typeof doctorName !== 'string' || !doctorName.trim() || doctorName.length > 80)) ||
+      (date !== undefined && !validDate(date)) ||
+      (startTime !== undefined && (typeof startTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime))) ||
+      (partOfDay !== undefined && !partsOfDay.includes(partOfDay)) ||
+      [sameDoctor, followUp, previousSearch].some((value) => value !== undefined && typeof value !== 'boolean')) return null;
+
+  return Object.fromEntries(Object.entries({ slotNumber, doctorNumber, doctorName, sameDoctor, date, dayOfMonth, month, startTime, partOfDay, followUp, previousSearch }).filter(([, value]) => value !== undefined));
+};
 
 const schemas = [
   {
@@ -37,6 +52,30 @@ const schemas = [
       parameters: {
         type: 'object',
         properties: { query: { type: 'string', description: 'Tên bác sĩ hoặc chuyên khoa, rỗng nếu muốn tất cả' } }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'select_displayed_slot',
+      description: 'Diễn giải yêu cầu chọn một ca trong kết quả đã hiển thị, hoặc câu trả lời làm rõ lựa chọn. Chỉ trích tiêu chí người dùng nêu.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          slotNumber: { type: 'integer', minimum: 1, description: 'Số hiển thị cạnh ca (#), hoặc thứ tự ca. Chọn lịch đầu tiên là 1.' },
+          doctorNumber: { type: 'integer', minimum: 1, description: 'Thứ tự bác sĩ khác nhau trong danh sách. Bác sĩ đầu tiên là 1, khác với ca đầu tiên.' },
+          doctorName: { type: 'string', description: 'Tên hoặc phần tên bác sĩ do người dùng nêu.' },
+          sameDoctor: { type: 'boolean', description: 'Người dùng nói bác sĩ này, bác sĩ đó hoặc bác sĩ vừa chọn mà không nêu tên hay số thứ tự.' },
+          date: { type: 'string', description: 'Ngày cụ thể YYYY-MM-DD hoặc đã suy ra chắc chắn từ hôm nay/ngày mai.' },
+          dayOfMonth: { type: 'integer', minimum: 1, maximum: 31, description: 'Chỉ số ngày khi người dùng chỉ nói ngày trong tháng, ví dụ ngày 28.' },
+          month: { type: 'integer', minimum: 1, maximum: 12, description: 'Tháng khi người dùng nêu tháng nhưng chưa nêu năm.' },
+          startTime: { type: 'string', description: 'Giờ bắt đầu chính xác HH:mm, dạng 24 giờ.' },
+          partOfDay: { type: 'string', enum: partsOfDay, description: 'Buổi sáng, chiều hoặc tối.' },
+          followUp: { type: 'boolean', description: 'Chỉ bật khi người dùng trả lời câu hỏi làm rõ ngay trước đó, chẳng hạn chỉ trả lời 14 giờ.' },
+          previousSearch: { type: 'boolean', description: 'Chỉ bật khi người dùng nói rõ muốn dùng một danh sách cũ, không phải lượt tra gần nhất.' }
+        }
       }
     }
   }
@@ -94,4 +133,4 @@ const execute = async (name, args) => {
   return getAvailabilityPage(args);
 };
 
-module.exports = { schemas, execute, getAvailabilityPage };
+module.exports = { schemas, execute, getAvailabilityPage, readSelectionIntent };

@@ -5,16 +5,17 @@ import { MessageCircle, Send, X } from 'lucide-react';
 import axiosClient from '../../api/axiosClient';
 import { useAuth } from '../../context/AuthContext';
 import { selectDoctor, selectDate, selectSlot, setPatientInfo, setHoldingInfo, setStep } from '../../store/slices/bookingSlice';
+import { resolveChatSelection } from './resolveChatSelection';
 
 const slotKey = ({ doctorId, date, timeSlot }) => `${doctorId}-${date}-${timeSlot}`;
 
 const ChatAvailabilityResults = ({ item, active, onChoose, onLoadMore, loading, busy, canLoadMore }) => {
   const groups = useMemo(() => {
     const byDate = new Map();
-    for (const option of item.options || []) {
+    (item.options || []).forEach((option, index) => {
       if (!byDate.has(option.date)) byDate.set(option.date, []);
-      byDate.get(option.date).push(option);
-    }
+      byDate.get(option.date).push({ option, number: index + 1 });
+    });
     return [...byDate];
   }, [item.options]);
 
@@ -23,14 +24,14 @@ const ChatAvailabilityResults = ({ item, active, onChoose, onLoadMore, loading, 
   return <div className="mt-3 space-y-3" aria-busy={loading}>
     {groups.map(([date, options]) => <div key={date} className="space-y-1.5">
       <p className="text-xs font-semibold text-slate-600 dark:text-slate-200">{date.split('-').reverse().join('/')}</p>
-      {options.map((option) => <button
+      {options.map(({ option, number }) => <button
         key={slotKey(option)}
         type="button"
         disabled={busy || !active}
         onClick={() => onChoose(item, option.optionId)}
         className="block w-full rounded-lg border border-primary-500 px-2 py-1.5 text-left text-xs text-primary-700 disabled:opacity-60 dark:text-primary-300"
       >
-        <span className="font-semibold">{option.timeSlot} · {option.doctorName}</span>
+        <span className="font-semibold">#{number} · {option.timeSlot} · {option.doctorName}</span>
         <span className="mt-0.5 block">{option.specialty} · {Number(option.fee || 0).toLocaleString('vi-VN')} đ</span>
       </button>)}
     </div>)}
@@ -60,6 +61,7 @@ const ChatSession = ({ user, isAuthenticated }) => {
   const [holdsLoaded, setHoldsLoaded] = useState(false);
   const [pendingBooking, setPendingBooking] = useState(null);
   const [phase, setPhase] = useState('chat');
+  const [selectionContext, setSelectionContext] = useState(null);
   const activeSearch = useMemo(() => messages.findLast((item) => item.searchId), [messages]);
   const sessionRequest = useRef(null);
   useEffect(() => {
@@ -93,6 +95,20 @@ const ChatSession = ({ user, isAuthenticated }) => {
     } finally { setBusy(false); }
   };
 
+  const confirmChoice = async (item, optionId) => {
+    if (item.searchId !== activeSearch?.searchId) return;
+    if (!isAuthenticated) { setError('Vui lòng đăng nhập bằng tài khoản bệnh nhân trước khi đặt lịch.'); return; }
+    if (user?.role !== 'patient') { setError('Vui lòng dùng tài khoản bệnh nhân để đặt lịch.'); return; }
+    setError(''); setRetryText('');
+    try {
+      const { data } = await axiosClient.post('/chat/availability/selections', { searchId: item.searchId, optionId }, { signal: sessionRequest.current.signal });
+      const { option } = data;
+      setSelectionContext({ searchId: item.searchId, doctorId: option.doctorId });
+      setPendingBooking({ option }); setPhase('symptoms'); setInput('');
+      setMessages((current) => [...current, { role: 'assistant', content: `Bạn chọn ${option.doctorName}, ${option.date} lúc ${option.timeSlot}. Bạn cho mình biết lý do khám hoặc triệu chứng nhé. Thông tin này sẽ được gửi trực tiếp đến hệ thống đặt lịch.`, localOnly: true }]);
+    } catch (err) { setError(err.message); }
+  };
+
   const send = async (text) => {
     const content = text.trim();
     if (!content || busy) return;
@@ -114,11 +130,25 @@ const ChatSession = ({ user, isAuthenticated }) => {
     }
     if (phase === 'holdError') return;
     const history = messages.filter((item) => !item.localOnly).slice(-8).map(({ role, content: body }) => ({ role, content: body }));
+    const context = selectionContext?.searchId === activeSearch?.searchId ? selectionContext : null;
     setMessages((current) => [...current, { role: 'user', content }]);
     setInput(''); setError(''); setBusy(true); setRetryText('');
     try {
-      const response = await axiosClient.post('/chat/messages', { message: content, history }, { timeout: 110000, signal: sessionRequest.current.signal });
-      const { reply, options, nextPage, searchId, searchFilters } = response.data;
+      const response = await axiosClient.post('/chat/messages', {
+        message: content, history, hasDisplayedSlots: Boolean(activeSearch?.options.length), awaitingSelectionDetail: Boolean(context?.criteria)
+      }, { timeout: 110000, signal: sessionRequest.current.signal });
+      const { reply, options, nextPage, searchId, searchFilters, selection } = response.data;
+      if (selection) {
+        const match = resolveChatSelection(selection, activeSearch, context);
+        if (match.optionId) {
+          await confirmChoice(activeSearch, match.optionId);
+        } else {
+          setSelectionContext(activeSearch ? { searchId: activeSearch.searchId, criteria: match.criteria, doctorId: match.doctorId || context?.doctorId } : null);
+          setMessages((current) => [...current, { role: 'assistant', content: match.reply }]);
+        }
+        return;
+      }
+      setSelectionContext(searchId || !context ? null : { searchId: context.searchId, doctorId: context.doctorId });
       setMessages((current) => [...current, { role: 'assistant', content: reply, options, nextPage, searchId, searchFilters }]);
     } catch (err) { setError(err.message); setRetryText(content); }
     finally { setBusy(false); }
@@ -148,16 +178,9 @@ const ChatSession = ({ user, isAuthenticated }) => {
   };
 
   const choose = async (item, optionId) => {
-    if (busy || item.searchId !== activeSearch?.searchId) return;
-    if (!isAuthenticated) { setError('Vui lòng đăng nhập bằng tài khoản bệnh nhân trước khi đặt lịch.'); return; }
-    if (user?.role !== 'patient') { setError('Vui lòng dùng tài khoản bệnh nhân để đặt lịch.'); return; }
-    setBusy(true); setError(''); setRetryText('');
-    try {
-      const { data } = await axiosClient.post('/chat/availability/selections', { searchId: item.searchId, optionId }, { signal: sessionRequest.current.signal });
-      const { option } = data;
-      setPendingBooking({ option }); setPhase('symptoms'); setInput('');
-      setMessages((current) => [...current, { role: 'assistant', content: `Bạn chọn ${option.doctorName}, ${option.date} lúc ${option.timeSlot}. Bạn cho mình biết lý do khám hoặc triệu chứng nhé. Thông tin này sẽ được gửi trực tiếp đến hệ thống đặt lịch.`, localOnly: true }]);
-    } catch (err) { setError(err.message); }
+    if (busy) return;
+    setBusy(true);
+    try { await confirmChoice(item, optionId); }
     finally { setBusy(false); }
   };
   const loadHolds = async () => {
