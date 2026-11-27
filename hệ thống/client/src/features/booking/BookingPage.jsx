@@ -91,6 +91,7 @@ const BookingPage = () => {
         </div>
       ) : (
         <MyAppointmentsTab
+          onContinueHold={() => setActiveTab('booking')}
           onStartBookingNew={() => {
             setActiveTab('booking');
             dispatch(resetBooking());

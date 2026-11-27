@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { selectDoctor, selectDate, selectSlot, nextStep } from '../../store/slices/bookingSlice';
+import { selectDoctor, selectDate, selectSlot, nextStep, getVietnamDateString } from '../../store/slices/bookingSlice';
 import axiosClient from '../../api/axiosClient';
 import { Calendar, Clock, RefreshCw, AlertCircle, Stethoscope, Star, CheckCircle, ArrowRight } from 'lucide-react';
 import Button from '../../components/common/Button';
@@ -75,11 +75,9 @@ const DoctorSlotSelector = () => {
     dispatch(nextStep());
   };
 
-  // Giới hạn ngày chọn: từ hôm nay đến 30 ngày sau
-  const todayStr = new Date().toISOString().split('T')[0];
-  const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 30);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  // Giới hạn ngày chọn: từ hôm nay đến 30 ngày sau theo giờ Việt Nam (Asia/Ho_Chi_Minh)
+  const todayStr = getVietnamDateString(0);
+  const maxDateStr = getVietnamDateString(30);
 
   return (
     <div className="space-y-6">

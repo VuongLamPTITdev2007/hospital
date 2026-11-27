@@ -1,11 +1,16 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// Mặc định chọn ngày mai để thuận tiện đặt lịch
-const getDefaultBookingDate = () => {
-  const target = new Date();
-  target.setDate(target.getDate() + 1);
-  return target.toISOString().split('T')[0];
+// Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam (Asia/Ho_Chi_Minh)
+export const getVietnamDateString = (offsetDays = 0) => {
+  const vnTodayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  if (offsetDays === 0) return vnTodayStr;
+  const target = new Date(`${vnTodayStr}T00:00:00Z`);
+  target.setUTCDate(target.getUTCDate() + offsetDays);
+  return target.toISOString().slice(0, 10);
 };
+
+// Mặc định chọn ngày mai theo giờ Việt Nam để thuận tiện đặt lịch
+const getDefaultBookingDate = () => getVietnamDateString(1);
 
 const initialState = {
   step: 1, // 1: Chọn bác sĩ & khung giờ -> 2: Thông tin bệnh nhân -> 3: Giữ chỗ & Cọc VietQR -> 4: Thành công

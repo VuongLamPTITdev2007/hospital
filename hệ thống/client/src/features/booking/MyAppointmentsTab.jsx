@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
+import {
+  selectDoctor,
+  selectDate,
+  selectSlot,
+  setPatientInfo,
+  setHoldingInfo,
+  setStep
+} from '../../store/slices/bookingSlice';
 import axiosClient from '../../api/axiosClient';
 import {
   Calendar,
@@ -9,11 +18,14 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Eye,
-  Trash2
+  Trash2,
+  CreditCard
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import Modal from '../../components/common/Modal';
 import { Link } from 'react-router-dom';
 
 const STATUS_BADGES = {
@@ -25,12 +37,15 @@ const STATUS_BADGES = {
   cancelled: { label: 'Đã hủy', bg: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' }
 };
 
-const MyAppointmentsTab = ({ onStartBookingNew }) => {
+const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
+  const dispatch = useDispatch();
   const { user, isAuthenticated } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelError, setCancelError] = useState('');
 
   const fetchAppointments = async () => {
     if (!isAuthenticated) return;
@@ -52,18 +67,77 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
     fetchAppointments();
   }, [isAuthenticated]);
 
-  const handleCancel = async (apptId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn khám này không? Khung giờ sẽ được giải phóng cho bệnh nhân khác.')) {
-      return;
+  const handleContinuePayment = (appt) => {
+    const bookingCode = appt._id.slice(-6).toUpperCase();
+    const expiresAtMs = appt.holdingExpiresAt
+      ? new Date(appt.holdingExpiresAt).getTime()
+      : Date.now() + 300000;
+    const secondsRemaining = Math.max(1, Math.floor((expiresAtMs - Date.now()) / 1000));
+    const depositAmount = appt.depositAmount || 50000;
+    const vietQrUrl = `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${depositAmount}&addInfo=MEDCARE%20${bookingCode}&accountName=MEDCARE%20CLINIC`;
+
+    dispatch(
+      selectDoctor({
+        id: appt.doctorId?._id || appt.doctorId,
+        doctorId: appt.doctorId?._id || appt.doctorId,
+        doctorProfileId: appt.doctorProfileId?._id || appt.doctorProfileId,
+        name: appt.doctorId?.fullName || 'Bác sĩ MedCare',
+        specialty: appt.doctorProfileId?.specialtyId?.name || 'Đa khoa',
+        hospital: appt.doctorProfileId?.hospital || 'Phòng khám Đa khoa MedCare',
+        avatar: appt.doctorId?.avatar,
+        fee: appt.fee || appt.doctorProfileId?.consultationFee || 350000
+      })
+    );
+    dispatch(selectDate(appt.date));
+    dispatch(selectSlot(appt.timeSlot));
+    dispatch(
+      setPatientInfo({
+        fullName: appt.patientName || '',
+        phone: appt.patientPhone || '',
+        symptoms: appt.symptomsNote || ''
+      })
+    );
+    dispatch(
+      setHoldingInfo({
+        appointmentId: appt._id,
+        bookingCode,
+        holdingExpiresAt: appt.holdingExpiresAt,
+        secondsRemaining,
+        depositAmount,
+        vietQrUrl,
+        appointment: appt
+      })
+    );
+    dispatch(setStep(3));
+    if (onContinueHold) {
+      onContinueHold();
     }
+  };
+
+  const openCancelModal = (appt) => {
+    setCancelError('');
+    setCancelTarget(appt);
+  };
+
+  const closeCancelModal = () => {
+    if (cancellingId) return;
+    setCancelTarget(null);
+    setCancelError('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    const apptId = cancelTarget._id;
     try {
       setCancellingId(apptId);
+      setCancelError('');
       const res = await axiosClient.post(`/appointments/${apptId}/cancel`);
       if (res.success) {
+        setCancelTarget(null);
         fetchAppointments();
       }
     } catch (err) {
-      alert(err.message || 'Không thể hủy lịch hẹn!');
+      setCancelError(err.message || 'Không thể hủy lịch hẹn! Vui lòng thử lại.');
     } finally {
       setCancellingId(null);
     }
@@ -134,6 +208,9 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
             const specialtyName = appt.doctorProfileId?.specialtyId?.name || 'Đa khoa';
             const bookingCode = appt._id.slice(-6).toUpperCase();
             const canCancel = ['holding', 'confirmed'].includes(appt.status);
+            const isValidHolding =
+              appt.status === 'holding' &&
+              (!appt.holdingExpiresAt || new Date(appt.holdingExpiresAt).getTime() > Date.now());
 
             return (
               <div
@@ -183,22 +260,40 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2 self-end md:self-center border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-between md:justify-start">
+                <div className="flex flex-wrap items-center gap-2 self-end md:self-center border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-end">
                   <div className="text-right mr-2 hidden sm:block">
                     <span className="text-[11px] text-slate-400 block">Tiền cọc</span>
-                    <span className="text-sm font-bold text-emerald-600">50.000 đ</span>
+                    <span className="text-sm font-bold text-emerald-600">
+                      {(appt.depositAmount || 50000).toLocaleString('vi-VN')} đ
+                    </span>
                   </div>
+
+                  {isValidHolding && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleContinuePayment(appt)}
+                      className="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 mr-1" />
+                      Tiếp tục thanh toán cọc
+                    </Button>
+                  )}
 
                   {canCancel && (
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={cancellingId === appt._id}
-                      onClick={() => handleCancel(appt._id)}
+                      onClick={() => openCancelModal(appt)}
                       className="text-red-600 hover:text-red-700 hover:border-red-300"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      {cancellingId === appt._id ? 'Đang hủy...' : 'Hủy hẹn'}
+                      {cancellingId === appt._id
+                        ? 'Đang hủy...'
+                        : appt.status === 'holding'
+                        ? 'Hủy giữ chỗ'
+                        : 'Hủy hẹn'}
                     </Button>
                   )}
                 </div>
@@ -207,6 +302,74 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
           })}
         </div>
       )}
+
+      {/* Modal xác nhận hủy lịch hẹn / hủy giữ chỗ đồng bộ giao diện */}
+      <Modal
+        isOpen={Boolean(cancelTarget)}
+        onClose={closeCancelModal}
+        title={cancelTarget?.status === 'holding' ? 'Xác nhận hủy giữ chỗ' : 'Xác nhận hủy lịch hẹn'}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start space-x-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              Bạn có chắc chắn muốn hủy{' '}
+              <strong>{cancelTarget?.status === 'holding' ? 'phiên giữ chỗ' : 'lịch hẹn khám'}</strong>{' '}
+              này không? Khung giờ sẽ được giải phóng ngay cho bệnh nhân khác.
+            </p>
+          </div>
+
+          {cancelTarget && (
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Mã phiếu:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  #{cancelTarget._id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bác sĩ:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {cancelTarget.doctorId?.fullName || 'Bác sĩ MedCare'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Thời gian:</span>
+                <span className="font-semibold text-primary-600 font-mono">
+                  {cancelTarget.timeSlot} · {cancelTarget.date}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {cancelError && (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span>{cancelError}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end space-x-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(cancellingId)}
+              onClick={closeCancelModal}
+            >
+              Giữ lại lịch
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={Boolean(cancellingId)}
+              onClick={handleConfirmCancel}
+            >
+              Xác nhận hủy
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
