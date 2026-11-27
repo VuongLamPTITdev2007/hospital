@@ -19,11 +19,21 @@ const SPECIALTY_OPTIONS = [
 /**
  * Component: QuestionFormModal
  * Form controlled có bắt lỗi (validation) dùng để đặt câu hỏi mới cho bác sĩ
+ * Hỗ trợ nhận danh sách chuyên khoa động từ API /api/specialties của TV 1
  */
-const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
+const QuestionFormModal = ({
+  isOpen,
+  onClose,
+  onSubmitQuestion,
+  specialtyOptions = SPECIALTY_OPTIONS
+}) => {
+  const availableSpecialties = (Array.isArray(specialtyOptions) && specialtyOptions.length > 0)
+    ? specialtyOptions
+    : SPECIALTY_OPTIONS;
+
   const [formData, setFormData] = useState({
     title: '',
-    specialty: 'Đa khoa',
+    specialty: availableSpecialties[0] || 'Đa khoa',
     content: '',
     tags: '',
     isAnonymous: false
@@ -146,7 +156,7 @@ const QuestionFormModal = ({ isOpen, onClose, onSubmitQuestion }) => {
             onChange={(e) => handleChange('specialty', e.target.value)}
             className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            {SPECIALTY_OPTIONS.map((spec) => (
+            {availableSpecialties.map((spec) => (
               <option key={spec} value={spec}>
                 {spec}
               </option>

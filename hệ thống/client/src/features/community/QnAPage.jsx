@@ -32,7 +32,7 @@ import QuestionDetailModal from './QuestionDetailModal';
 import DoctorReviewsTab from './DoctorReviewsTab';
 import AppointmentHistory from './AppointmentHistory';
 
-const SPECIALTY_FILTERS = [
+const DEFAULT_SPECIALTIES = [
   'Tất cả',
   'Thần kinh',
   'Nhi khoa',
@@ -55,6 +55,9 @@ const QnAPage = () => {
 
   // State tab chuyển đổi: 'qna' | 'reviews' | 'history'
   const [activeTab, setActiveTab] = useState('qna');
+
+  // Danh mục chuyên khoa động lấy từ API /api/specialties của TV 1
+  const [specialties, setSpecialties] = useState(DEFAULT_SPECIALTIES);
 
   // State dữ liệu thực tế từ MongoDB Atlas (không dùng mock fallback)
   const [questions, setQuestions] = useState([]);
@@ -167,6 +170,25 @@ const QnAPage = () => {
       fetchQuestions(1, isSilent);
     }
   }, [debouncedSearch, selectedSpecialty, fetchQuestions, activeTab]);
+
+  // 4. Tải danh mục chuyên khoa động từ API /api/specialties của TV 1
+  const fetchSpecialties = useCallback(async () => {
+    try {
+      const res = await axiosClient.get('/specialties');
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const specNames = res.data.map((s) => s.name).filter(Boolean);
+        const uniqueSpecs = ['Tất cả', ...new Set(specNames)];
+        setSpecialties(uniqueSpecs);
+      }
+    } catch (err) {
+      console.warn('Không thể tải chuyên khoa động từ /api/specialties, dùng mặc định:', err.message);
+    }
+  }, []);
+
+  // Tự động tải danh mục chuyên khoa động khi khởi tạo trang
+  useEffect(() => {
+    fetchSpecialties();
+  }, [fetchSpecialties]);
 
   // Tự động tải dữ liệu theo tab đang được kích hoạt
   useEffect(() => {
@@ -552,10 +574,10 @@ const QnAPage = () => {
               </div>
             </div>
 
-            {/* Danh Mục Tabs Chuyên Khoa */}
+            {/* Danh Mục Tabs Chuyên Khoa Động */}
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 pt-1 no-scrollbar">
               <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1">Chuyên khoa:</span>
-              {SPECIALTY_FILTERS.map((specialty) => (
+              {specialties.map((specialty) => (
                 <button
                   key={specialty}
                   type="button"
@@ -698,11 +720,12 @@ const QnAPage = () => {
         </div>
       )}
 
-      {/* Modal Đặt Câu Hỏi */}
+      {/* Modal Đặt Câu Hỏi (truyền danh sách chuyên khoa động) */}
       <QuestionFormModal
         isOpen={isQuestionModalOpen}
         onClose={() => setIsQuestionModalOpen(false)}
         onSubmitQuestion={handleCreateQuestion}
+        specialtyOptions={specialties.filter((s) => s !== 'Tất cả')}
       />
 
       {/* Modal Đánh Giá Bác Sĩ (Chống spam) */}
