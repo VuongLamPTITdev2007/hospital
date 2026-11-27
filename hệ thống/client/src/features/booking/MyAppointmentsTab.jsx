@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
+import {
+  selectDoctor,
+  selectDate,
+  selectSlot,
+  setPatientInfo,
+  setHoldingInfo,
+  setStep
+} from '../../store/slices/bookingSlice';
 import axiosClient from '../../api/axiosClient';
 import {
   Calendar,
@@ -11,7 +20,8 @@ import {
   AlertCircle,
   RefreshCw,
   Eye,
-  Trash2
+  Trash2,
+  CreditCard
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { Link } from 'react-router-dom';
@@ -25,7 +35,8 @@ const STATUS_BADGES = {
   cancelled: { label: 'Đã hủy', bg: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' }
 };
 
-const MyAppointmentsTab = ({ onStartBookingNew }) => {
+const MyAppointmentsTab = ({ onStartBookingNew, onContinueHold }) => {
+  const dispatch = useDispatch();
   const { user, isAuthenticated } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +62,53 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
   useEffect(() => {
     fetchAppointments();
   }, [isAuthenticated]);
+
+  const handleContinuePayment = (appt) => {
+    const bookingCode = appt._id.slice(-6).toUpperCase();
+    const expiresAtMs = appt.holdingExpiresAt
+      ? new Date(appt.holdingExpiresAt).getTime()
+      : Date.now() + 300000;
+    const secondsRemaining = Math.max(1, Math.floor((expiresAtMs - Date.now()) / 1000));
+    const depositAmount = appt.depositAmount || 50000;
+    const vietQrUrl = `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${depositAmount}&addInfo=MEDCARE%20${bookingCode}&accountName=MEDCARE%20CLINIC`;
+
+    dispatch(
+      selectDoctor({
+        id: appt.doctorId?._id || appt.doctorId,
+        doctorId: appt.doctorId?._id || appt.doctorId,
+        doctorProfileId: appt.doctorProfileId?._id || appt.doctorProfileId,
+        name: appt.doctorId?.fullName || 'Bác sĩ MedCare',
+        specialty: appt.doctorProfileId?.specialtyId?.name || 'Đa khoa',
+        hospital: appt.doctorProfileId?.hospital || 'Phòng khám Đa khoa MedCare',
+        avatar: appt.doctorId?.avatar,
+        fee: appt.fee || appt.doctorProfileId?.consultationFee || 350000
+      })
+    );
+    dispatch(selectDate(appt.date));
+    dispatch(selectSlot(appt.timeSlot));
+    dispatch(
+      setPatientInfo({
+        fullName: appt.patientName || '',
+        phone: appt.patientPhone || '',
+        symptoms: appt.symptomsNote || ''
+      })
+    );
+    dispatch(
+      setHoldingInfo({
+        appointmentId: appt._id,
+        bookingCode,
+        holdingExpiresAt: appt.holdingExpiresAt,
+        secondsRemaining,
+        depositAmount,
+        vietQrUrl,
+        appointment: appt
+      })
+    );
+    dispatch(setStep(3));
+    if (onContinueHold) {
+      onContinueHold();
+    }
+  };
 
   const handleCancel = async (apptId) => {
     if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn khám này không? Khung giờ sẽ được giải phóng cho bệnh nhân khác.')) {
@@ -134,6 +192,9 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
             const specialtyName = appt.doctorProfileId?.specialtyId?.name || 'Đa khoa';
             const bookingCode = appt._id.slice(-6).toUpperCase();
             const canCancel = ['holding', 'confirmed'].includes(appt.status);
+            const isValidHolding =
+              appt.status === 'holding' &&
+              (!appt.holdingExpiresAt || new Date(appt.holdingExpiresAt).getTime() > Date.now());
 
             return (
               <div
@@ -183,11 +244,25 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2 self-end md:self-center border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-between md:justify-start">
+                <div className="flex flex-wrap items-center gap-2 self-end md:self-center border-t md:border-t-0 pt-3 md:pt-0 w-full md:w-auto justify-end">
                   <div className="text-right mr-2 hidden sm:block">
                     <span className="text-[11px] text-slate-400 block">Tiền cọc</span>
-                    <span className="text-sm font-bold text-emerald-600">50.000 đ</span>
+                    <span className="text-sm font-bold text-emerald-600">
+                      {(appt.depositAmount || 50000).toLocaleString('vi-VN')} đ
+                    </span>
                   </div>
+
+                  {isValidHolding && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleContinuePayment(appt)}
+                      className="bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 mr-1" />
+                      Tiếp tục thanh toán cọc
+                    </Button>
+                  )}
 
                   {canCancel && (
                     <Button
@@ -198,7 +273,11 @@ const MyAppointmentsTab = ({ onStartBookingNew }) => {
                       className="text-red-600 hover:text-red-700 hover:border-red-300"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      {cancellingId === appt._id ? 'Đang hủy...' : 'Hủy hẹn'}
+                      {cancellingId === appt._id
+                        ? 'Đang hủy...'
+                        : appt.status === 'holding'
+                        ? 'Hủy giữ chỗ'
+                        : 'Hủy hẹn'}
                     </Button>
                   )}
                 </div>
