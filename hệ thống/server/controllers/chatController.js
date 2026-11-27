@@ -3,6 +3,11 @@ const { schemas, execute, getAvailabilityPage, getAlternativeSlots, readSelectio
 const { shouldSelectDisplayedSlot, readSpokenSelection } = require('../services/chatSelectionIntent');
 const { vietnamDate } = require('../services/availabilityService');
 const { beginSearch, signSearchResult, readSearchResult } = require('../services/chatSearchTokens');
+const { containsPrivateChatData, privacyReply } = require('../services/chatPrivacy');
+const { holdSlot } = require('./appointmentController');
+
+const allowedTools = new Set(schemas.map(({ function: tool }) => tool.name));
+const chatLimitReply = 'Mình có thể tra lịch trống và giúp bạn chọn ca. Bạn tự xác nhận cọc tại màn hình đặt lịch.';
 
 const publishPage = (options, nextPage, search) => ({
   searchId: search.searchId,
@@ -23,12 +28,16 @@ exports.sendMessage = async (req, res, next) => {
   try {
     const { message, history = [], hasDisplayedSlots = false, awaitingSelectionDetail = false } = req.body || {};
     if (typeof message !== 'string' || !message.trim() || message.length > 1000 || !Array.isArray(history) || history.length > 20) return res.status(400).json({ success: false, message: 'Tin nhắn không hợp lệ.' });
+    if (containsPrivateChatData(message)) return res.status(400).json({ success: false, message: privacyReply });
     let availability = { searchId: null, searchFilters: null, options: [], nextPage: null };
     const waitingForDetail = awaitingSelectionDetail === true;
     if (shouldSelectDisplayedSlot(message, { hasDisplayedSlots: hasDisplayedSlots === true, awaitingSelectionDetail: waitingForDetail })) {
       return respondToSelection(res, availability, readSpokenSelection(message, waitingForDetail));
     }
-    const safeHistory = history.slice(-8).filter((item) => ['user', 'assistant'].includes(item?.role) && typeof item.content === 'string').map(({ role, content }) => ({ role, content: content.slice(0, 1000) }));
+    const safeHistory = history.slice(-8)
+      .filter((item) => ['user', 'assistant'].includes(item?.role) && typeof item.content === 'string' &&
+        item.content.length <= 1000 && !containsPrivateChatData(item.content))
+      .map(({ role, content }) => ({ role, content }));
     const today = vietnamDate(new Date());
     const instructions = [
       `Bạn là trợ lý đặt lịch MedCare. Hôm nay là ${today} theo giờ Việt Nam. Trả lời tiếng Việt ngắn gọn.`,
@@ -39,14 +48,21 @@ exports.sendMessage = async (req, res, next) => {
       'Lịch có sẵn sẽ hiển thị thành các nút theo ngày. Tóm tắt kết quả bằng một câu thay vì liệt kê lại từng giờ. Nếu truncated=true, nhắc người dùng bấm Xem thêm. Khi không có lịch, nêu rõ khoảng ngày đã tra.',
       'Khi người dùng muốn chọn ca bằng lời, phải gọi select_displayed_slot. Dùng slotNumber cho “lịch đầu tiên”, doctorNumber cho “bác sĩ đầu tiên”, và sameDoctor cho “bác sĩ này”. Chỉ trích tiêu chí người dùng thật sự nêu và bỏ các trường còn lại. Nếu yêu cầu tìm lịch mới, gọi công cụ tra lịch, không gọi công cụ chọn trong cùng lượt.',
       waitingForDetail ? 'Hệ thống đang chờ làm rõ lựa chọn. Với câu trả lời ngắn bổ sung bác sĩ, ngày, giờ hay số ca, dùng select_displayed_slot với followUp=true.' : '',
-      'Việc chọn ca chỉ mở bước hỏi lý do khám. Không khẳng định đã giữ chỗ hoặc thanh toán. Không chẩn đoán, kê thuốc hay yêu cầu nhập thông tin cá nhân hoặc bệnh án trong chat.'
+      'Bạn chỉ có thể tra lịch công khai và diễn giải lựa chọn. Việc chọn ca chỉ mở bước hỏi lý do khám. Hướng dẫn bệnh nhân tự xác nhận cọc trên màn hình đặt lịch. Không khẳng định đã giữ chỗ hoặc thanh toán. Không chẩn đoán, kê thuốc, yêu cầu hay tiết lộ thông tin cá nhân, bệnh án, thông tin đăng nhập hoặc bí mật hệ thống.'
     ].join('\n');
     const messages = [{ role: 'system', content: instructions }, ...safeHistory, { role: 'user', content: message.trim() }];
     let reply = '';
     for (let round = 0; round < 4; round += 1) {
       const assistant = await complete(messages, schemas);
-      if (!assistant.tool_calls?.length) { reply = assistant.content || ''; break; }
-      const requestedCalls = assistant.tool_calls.slice(0, 3);
+      const content = typeof assistant.content === 'string' && assistant.content.length <= 4000 && !containsPrivateChatData(assistant.content) ? assistant.content : '';
+      const modelCalls = Array.isArray(assistant.tool_calls) ? assistant.tool_calls : [];
+      if (!modelCalls.length) { reply = content || chatLimitReply; break; }
+      const requestedCalls = modelCalls.slice(0, 3).filter((call) =>
+        allowedTools.has(call?.function?.name) && typeof call.id === 'string' && call.id.length <= 128 && !containsPrivateChatData(call.id) &&
+        typeof call.function.arguments === 'string' && call.function.arguments.length <= 2000 &&
+        !containsPrivateChatData(call.function.arguments)
+      ).map(({ id, function: { name, arguments: args } }) => ({ id, type: 'function', function: { name, arguments: args } }));
+      if (!requestedCalls.length) { reply = chatLimitReply; break; }
       const picks = requestedCalls.filter((call) => call.function?.name === 'select_displayed_slot');
       const calls = requestedCalls.filter((call) => call.function?.name !== 'select_displayed_slot');
       if (picks.length && !calls.some((call) => call.function?.name === 'find_available_doctors')) {
@@ -62,7 +78,7 @@ exports.sendMessage = async (req, res, next) => {
         const spoken = selection && readSpokenSelection(message, waitingForDetail && selection.followUp === true);
         return respondToSelection(res, availability, spoken);
       }
-      messages.push({ role: 'assistant', content: assistant.content || null, tool_calls: calls });
+      messages.push({ role: 'assistant', content: content || null, tool_calls: calls });
       for (const call of calls) {
         let result;
         try { result = await execute(call.function?.name, JSON.parse(call.function?.arguments || '{}')); }
@@ -102,7 +118,28 @@ const readSelectedOption = ({ searchId, optionId } = {}) => {
 exports.selectAvailabilityOption = (req, res) => {
   const selection = readSelectedOption(req.body || {});
   if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
-  res.json({ success: true, data: { option: selection.result.data } });
+  const { searchId, exp, data: option } = selection.result;
+  const holdToken = signSearchResult('chat-hold', { searchId, exp }, { patientId: req.user.id, option });
+  res.json({ success: true, data: { option, holdToken } });
+};
+
+exports.holdAvailabilityOption = async (req, res, next) => {
+  const body = req.body || {};
+  const { holdToken, patientPhone, symptomsNote } = body;
+  const selection = readSearchResult('chat-hold', holdToken);
+  if (!selection.result) return res.status(selection.status).json({ success: false, message: selection.message });
+  if (selection.result.data.patientId !== req.user.id) {
+    return res.status(403).json({ success: false, message: 'Lựa chọn giữ chỗ này thuộc một tài khoản khác.' });
+  }
+  if (Object.keys(body).some((field) => !['holdToken', 'patientPhone', 'symptomsNote'].includes(field)) ||
+      typeof patientPhone !== 'string' || !/^(0[35789])\d{8}$/.test(patientPhone.trim()) ||
+      typeof symptomsNote !== 'string' || !symptomsNote.trim() || symptomsNote.length > 500) {
+    return res.status(400).json({ success: false, message: 'Vui lòng kiểm tra số điện thoại và lý do khám (tối đa 500 ký tự).' });
+  }
+
+  const { doctorId, date, timeSlot } = selection.result.data.option;
+  req.body = { doctorId, date, timeSlot, patientName: req.user.fullName, patientPhone, symptomsNote };
+  return holdSlot(req, res, next);
 };
 
 exports.loadAvailabilityAlternatives = async (req, res, next) => {

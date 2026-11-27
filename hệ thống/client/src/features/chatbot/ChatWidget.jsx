@@ -10,9 +10,12 @@ import { resolveChatSelection } from './resolveChatSelection';
 const slotKey = ({ doctorId, date, timeSlot }) => `${doctorId}-${date}-${timeSlot}`;
 const displayDate = (date) => date.split('-').reverse().join('/');
 const holdResponseConfig = {
-  validateStatus: (status) => status === 409 || (status >= 200 && status < 300),
-  transformResponse: [].concat(axiosClient.defaults.transformResponse, (data, _headers, status) =>
-    status === 409 ? { slotConflict: true } : data)
+  validateStatus: (status) => status === 409 || status === 410 || (status >= 200 && status < 300),
+  transformResponse: [].concat(axiosClient.defaults.transformResponse, (data, _headers, status) => {
+    if (status === 409) return { slotConflict: true };
+    if (status === 410) return { selectionExpired: true, message: data?.message };
+    return data;
+  })
 };
 
 const ChatAvailabilityResults = ({ item, active, onChoose, onLoadMore, loading, busy, canLoadMore }) => {
@@ -76,6 +79,10 @@ const ChatSession = ({ user, isAuthenticated }) => {
     return () => controller.abort();
   }, []);
 
+  const returnToSearch = () => {
+    setPendingBooking(null); setSelectionContext(null); setPhase('chat');
+  };
+
   const suggestAlternatives = async ({ option, searchId, optionId }, signal) => {
     const taken = `Ca ${option.timeSlot} ngày ${displayDate(option.date)} vừa có người giữ hoặc đặt.`;
     let message;
@@ -92,7 +99,7 @@ const ChatSession = ({ user, isAuthenticated }) => {
       message = { content: `${taken} Bạn hãy tra lại lịch để xem các ca còn trống.`, closesSearch: true };
     }
     if (signal.aborted) return;
-    setPendingBooking(null); setSelectionContext(null); setPhase('chat');
+    returnToSearch();
     setMessages((current) => [...current, { ...message, role: 'assistant', localOnly: true }]);
   };
 
@@ -100,17 +107,21 @@ const ChatSession = ({ user, isAuthenticated }) => {
     const { signal } = sessionRequest.current;
     setBusy(true); setError('');
     try {
-      const response = await axiosClient.post('/appointments/hold', {
-        doctorId: booking.option.doctorId,
-        date: booking.option.date,
-        timeSlot: booking.option.timeSlot,
-        patientName: user.fullName,
+      const response = await axiosClient.post('/chat/availability/holds', {
+        holdToken: booking.holdToken,
         patientPhone: booking.phone,
         symptomsNote: booking.symptoms
       }, { ...holdResponseConfig, signal });
       if (signal.aborted) return;
       if (response.slotConflict) {
         await suggestAlternatives(booking, signal);
+        return;
+      }
+      if (response.selectionExpired) {
+        returnToSearch();
+        setMessages((current) => [...current, {
+          role: 'assistant', content: response.message || 'Lựa chọn đã hết hạn. Bạn hãy tra lịch lại.', closesSearch: true, localOnly: true
+        }]);
         return;
       }
       dispatch(selectDoctor({ id: booking.option.doctorId, doctorId: booking.option.doctorId, name: booking.option.doctorName, specialty: booking.option.specialty, fee: booking.option.fee }));
@@ -132,9 +143,9 @@ const ChatSession = ({ user, isAuthenticated }) => {
     setError(''); setRetryText('');
     try {
       const { data } = await axiosClient.post('/chat/availability/selections', { searchId: item.searchId, optionId }, { signal: sessionRequest.current.signal });
-      const { option } = data;
+      const { option, holdToken } = data;
       setSelectionContext({ searchId: item.searchId, doctorId: option.doctorId });
-      setPendingBooking({ option, searchId: item.searchId, optionId }); setPhase('symptoms'); setInput('');
+      setPendingBooking({ option, searchId: item.searchId, optionId, holdToken }); setPhase('symptoms'); setInput('');
       setMessages((current) => [...current, { role: 'assistant', content: `Bạn chọn ${option.doctorName}, ${option.date} lúc ${option.timeSlot}. Bạn cho mình biết lý do khám hoặc triệu chứng nhé. Thông tin này sẽ được gửi trực tiếp đến hệ thống đặt lịch.`, localOnly: true }]);
     } catch (err) { setError(err.message); }
   };
@@ -244,7 +255,8 @@ const ChatSession = ({ user, isAuthenticated }) => {
         {holdsLoaded && !holds.length && <p className="text-sm text-slate-500">Bạn không có lịch đang giữ còn hiệu lực.</p>}
       </div>
       <div className="border-t px-3 pt-2"><button type="button" onClick={loadHolds} disabled={busy} className="text-xs text-primary-600 underline">Xem lịch đang giữ để xác nhận cọc</button></div>
-      <form onSubmit={(event) => { event.preventDefault(); send(input); }} className="flex gap-2 p-3"><input value={input} onChange={(event) => setInput(event.target.value)} maxLength={1000} placeholder={phase === 'symptoms' ? 'Nhập lý do khám hoặc triệu chứng...' : phase === 'phone' ? 'Nhập số điện thoại...' : 'Nhập yêu cầu đặt lịch...'} aria-label="Tin nhắn" className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm dark:bg-slate-900" /><button type="submit" disabled={busy || phase === 'holdError' || !input.trim()} aria-label="Gửi tin nhắn" className="rounded-lg bg-primary-600 p-2 text-white disabled:opacity-50"><Send className="h-5 w-5" /></button></form>
+      {phase === 'chat' && <p id="medcare-chat-privacy" className="px-3 pt-2 text-xs text-slate-600 dark:text-slate-200">Câu hỏi tra lịch có thể được gửi tới OpenRouter. Hãy nhập triệu chứng và thông tin cá nhân ở bước đặt lịch.</p>}
+      <form onSubmit={(event) => { event.preventDefault(); send(input); }} className="flex gap-2 p-3"><input value={input} onChange={(event) => setInput(event.target.value)} maxLength={1000} placeholder={phase === 'symptoms' ? 'Nhập lý do khám hoặc triệu chứng...' : phase === 'phone' ? 'Nhập số điện thoại...' : 'Nhập yêu cầu đặt lịch...'} aria-label="Tin nhắn" aria-describedby={phase === 'chat' ? 'medcare-chat-privacy' : undefined} className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm dark:bg-slate-900" /><button type="submit" disabled={busy || phase === 'holdError' || !input.trim()} aria-label="Gửi tin nhắn" className="rounded-lg bg-primary-600 p-2 text-white disabled:opacity-50"><Send className="h-5 w-5" /></button></form>
     </section>}
   </>;
 };
