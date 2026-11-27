@@ -6,6 +6,9 @@ const DoctorProfile = require('../models/DoctorProfile');
 const Specialty = require('../models/Specialty');
 const User = require('../models/User');
 
+// Escape ký tự đặc biệt trước khi đưa vào RegExp để tránh lỗi cú pháp khi tìm kiếm
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * Controller: communityController
  * Phân hệ TV 5: Diễn đàn Hỏi - Đáp Y tế & Đánh giá Bác sĩ
@@ -28,7 +31,7 @@ exports.getDiscussions = async (req, res, next) => {
     // Tìm kiếm từ khóa theo ranh giới từ tiếng Việt: (?<![\p{L}\p{N}])...(?![\p{L}\p{N}]) với cờ 'iu'
     // Đảm bảo tìm 'ho' chỉ khớp từ 'ho' độc lập, không khớp nhầm vào 'cho', 'không', v.v.
     if (search && search.trim()) {
-      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escaped = escapeRegex(search.trim());
       const keywordRegex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu');
       query.$or = [
         { title: keywordRegex },
@@ -39,7 +42,8 @@ exports.getDiscussions = async (req, res, next) => {
 
     // Lọc theo chuyên khoa (nếu có và khác 'Tất cả')
     if (specialty && specialty !== 'Tất cả') {
-      query.specialtyName = specialty;
+      const escapedSpecialty = escapeRegex(specialty.trim());
+      query.specialtyName = new RegExp(`^${escapedSpecialty}$`, 'i');
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
