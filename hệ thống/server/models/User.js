@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema({
     enum: ['patient', 'doctor', 'pharmacist', 'admin'],
     default: 'patient'
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   avatar: {
     type: String,
     default: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'

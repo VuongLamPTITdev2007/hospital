@@ -19,12 +19,12 @@ const isSafeIndex = (index) =>
 exports.getDoctorsForBooking = async (req, res, next) => {
   try {
     const doctorProfiles = await DoctorProfile.find()
-      .populate('userId', 'fullName email phone avatar role')
+      .populate('userId', 'fullName email phone avatar role isActive')
       .populate('specialtyId', 'name icon description')
       .lean();
 
     const doctors = doctorProfiles
-      .filter((dp) => dp.userId && dp.userId.role === 'doctor')
+      .filter((dp) => dp.userId && dp.userId.role === 'doctor' && dp.userId.isActive !== false)
       .map((dp) => ({
         id: dp.userId._id,
         doctorId: dp.userId._id,
@@ -74,17 +74,22 @@ exports.getAvailableSlots = async (req, res, next) => {
     const doctorProfile = await DoctorProfile.findOne({
       $or: [{ userId: doctorId }, { _id: doctorId }]
     })
-      .populate('userId', 'fullName avatar')
+      .populate('userId', 'fullName avatar role isActive')
       .populate('specialtyId', 'name');
 
-    if (!doctorProfile) {
+    if (
+      !doctorProfile ||
+      !doctorProfile.userId ||
+      doctorProfile.userId.role !== 'doctor' ||
+      doctorProfile.userId.isActive === false
+    ) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy thông tin bác sĩ yêu cầu!'
+        message: 'Không tìm thấy thông tin bác sĩ đang hoạt động!'
       });
     }
 
-    const targetDoctorId = doctorProfile.userId ? doctorProfile.userId._id : doctorId;
+    const targetDoctorId = doctorProfile.userId._id || doctorId;
 
     // Xác định thứ trong tuần theo chuẩn ISO Việt Nam (Thứ 2 = 1 ... Chủ nhật = 7)
     const dateObj = new Date(date + 'T00:00:00');
@@ -230,16 +235,21 @@ exports.holdSlot = async (req, res, next) => {
     // Kiểm tra thông tin bác sĩ
     const doctorProfile = await DoctorProfile.findOne({
       $or: [{ userId: doctorId }, { _id: doctorId }]
-    });
+    }).populate('userId', 'role isActive');
 
-    if (!doctorProfile) {
+    if (
+      !doctorProfile ||
+      !doctorProfile.userId ||
+      doctorProfile.userId.role !== 'doctor' ||
+      doctorProfile.userId.isActive === false
+    ) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy thông tin bác sĩ được chỉ định!'
+        message: 'Không tìm thấy thông tin bác sĩ đang hoạt động!'
       });
     }
 
-    const actualDoctorUserId = doctorProfile.userId || doctorId;
+    const actualDoctorUserId = doctorProfile.userId._id || doctorId;
 
     // Chặn đặt lịch trong quá khứ và kiểm tra khung giờ có thuộc lịch bác sĩ không
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });

@@ -52,6 +52,7 @@ exports.register = async (req, res, next) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        isActive: user.isActive !== false,
         avatar: user.avatar
       }
     });
@@ -88,6 +89,13 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    if (user.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'Tài khoản của bạn đã bị khóa bởi Quản trị viên. Vui lòng liên hệ phòng khám!'
+      });
+    }
+
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role, fullName: user.fullName },
       process.env.JWT_SECRET || 'medcare_super_secret_jwt_key_2026_vibecoding',
@@ -103,6 +111,7 @@ exports.login = async (req, res, next) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        isActive: user.isActive !== false,
         avatar: user.avatar
       }
     });

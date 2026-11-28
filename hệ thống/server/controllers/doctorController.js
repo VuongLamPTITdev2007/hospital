@@ -272,6 +272,7 @@ exports.getDoctors = async (req, res, next) => {
         const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
         const matchedUsers = await User.find({
           role: 'doctor',
+          isActive: { $ne: false },
           $or: [{ fullName: searchRegex }, { email: searchRegex }]
         }).select('_id');
 
@@ -282,6 +283,12 @@ exports.getDoctors = async (req, res, next) => {
           { bio: searchRegex }
         ];
       }
+
+      const activeDoctorUsers = await User.find({
+        role: 'doctor',
+        isActive: { $ne: false }
+      }).select('_id');
+      const activeDoctorUserIds = activeDoctorUsers.map((u) => u._id);
 
       let sortOptions = {};
       if (sortBy === 'fee_asc') sortOptions.consultationFee = 1;
@@ -295,9 +302,13 @@ exports.getDoctors = async (req, res, next) => {
 
       const hasDoctorsInDb = (await DoctorProfile.estimatedDocumentCount()) > 0;
       if (hasDoctorsInDb) {
-        const total = await DoctorProfile.countDocuments(query);
+        const dbQuery = {
+          ...query,
+          userId: { $in: activeDoctorUserIds }
+        };
+        const total = await DoctorProfile.countDocuments(dbQuery);
         const doctors = total > 0
-          ? await DoctorProfile.find(query)
+          ? await DoctorProfile.find(dbQuery)
               .populate('userId', 'fullName email avatar phone')
               .populate('specialtyId', 'name icon description')
               .sort(sortOptions)
@@ -339,16 +350,16 @@ exports.getDoctorById = async (req, res, next) => {
     if (mongoose.connection.readyState === 1) {
       if (mongoose.Types.ObjectId.isValid(id)) {
         let doctor = await DoctorProfile.findById(id)
-          .populate('userId', 'fullName email avatar phone')
+          .populate('userId', 'fullName email avatar phone role isActive')
           .populate('specialtyId', 'name icon description');
 
         if (!doctor) {
           doctor = await DoctorProfile.findOne({ userId: id })
-            .populate('userId', 'fullName email avatar phone')
+            .populate('userId', 'fullName email avatar phone role isActive')
             .populate('specialtyId', 'name icon description');
         }
 
-        if (doctor) {
+        if (doctor && doctor.userId && doctor.userId.role === 'doctor' && doctor.userId.isActive !== false) {
           const reviews = await Review.find({ doctorId: doctor.userId._id })
             .populate('patientId', 'fullName avatar')
             .sort({ createdAt: -1 })

@@ -23,11 +23,17 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findById(decoded.id).select('role email fullName');
+    const user = await User.findById(decoded.id).select('role email fullName isActive');
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Tài khoản không còn tồn tại.'
+      });
+    }
+    if (user.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tài khoản của bạn đã bị khóa bởi Quản trị viên!'
       });
     }
     req.user = {

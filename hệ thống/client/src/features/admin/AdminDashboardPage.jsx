@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarCheck, DollarSign, Shield, Users } from 'lucide-react';
+import { BarChart3, CalendarCheck, DollarSign, Shield, Users } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import AnalyticsFilter from './components/AnalyticsFilter';
 import { DashboardEmpty, DashboardError, DashboardLoading } from './components/DashboardState';
 import RevenueBySpecialty from './components/RevenueBySpecialty';
 import StatsCard from './components/StatsCard';
+import UserManagementTab from './components/UserManagementTab';
 
 const formatDate = (date) => {
   const year = date.getFullYear();
@@ -22,6 +23,7 @@ const getCurrentMonthFilters = () => {
 };
 
 const AdminDashboardPage = () => {
+  const [activeTab, setActiveTab] = useState('analytics');
   const initialFilters = getCurrentMonthFilters();
   const [formFilters, setFormFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
@@ -57,34 +59,65 @@ const AdminDashboardPage = () => {
     <div className="space-y-6">
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
         <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 rounded-full text-xs font-semibold mb-2">
-          Phân hệ TV 6: Quản trị Admin & Thống kê Analytics
+          Phân hệ TV 6: Quản trị Admin &amp; Thống kê Analytics
         </span>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Bảng Điều Khiển Quản Trị & Báo Cáo Y Tế</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tổng hợp từ MongoDB Aggregation Pipeline. Số liệu phí khám là phí dự kiến của các ca hoàn tất có xác nhận cọc mô phỏng (không phải doanh thu ngân hàng thực thu); tổng tài khoản tính trên toàn hệ thống.</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Bảng Điều Khiển Quản Trị &amp; Báo Cáo Y Tế</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tổng hợp từ MongoDB Aggregation Pipeline và quản trị phân quyền nhân sự RBAC 4 vai trò. Số liệu phí khám là phí dự kiến của các ca hoàn tất có xác nhận cọc mô phỏng (không phải doanh thu ngân hàng thực thu).</p>
       </section>
 
-      <AnalyticsFilter
-        from={formFilters.from}
-        to={formFilters.to}
-        error={validationError}
-        onFromChange={(from) => setFormFilters((current) => ({ ...current, from }))}
-        onToChange={(to) => setFormFilters((current) => ({ ...current, to }))}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-      />
+      <nav aria-label="Chức năng quản trị" className="inline-flex flex-wrap gap-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-1.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            activeTab === 'analytics'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" /> Thống kê &amp; Báo cáo
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('accounts')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            activeTab === 'accounts'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Quản lý nhân sự và tài khoản
+        </button>
+      </nav>
 
-      {loading && <DashboardLoading />}
-      {!loading && error && <DashboardError message={error} onRetry={refetch} />}
-      {!loading && !error && analytics && (
+      {activeTab === 'analytics' ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatsCard label="Phí khám mô phỏng" value={`${analytics.summary.paidRevenue.toLocaleString('vi-VN')} đ`} helper={`Từ ${analytics.filters.from} đến ${analytics.filters.to}`} icon={DollarSign} tone="emerald" />
-            <StatsCard label="Ca khám hoàn tất" value={`${analytics.summary.completedAppointments} ca`} helper="Lịch khám có trạng thái hoàn tất" icon={CalendarCheck} tone="primary" />
-            <StatsCard label="Bệnh nhân đã đăng ký" value={`${analytics.summary.patientCount} người`} helper={`${analytics.usersByRole.patient} tài khoản patient`} icon={Users} tone="sky" />
-            <StatsCard label="Bác sĩ & Dược sĩ" value={`${analytics.summary.staffCount} nhân sự`} helper={`RBAC: ${analytics.usersByRole.admin} admin`} icon={Shield} tone="purple" />
-          </div>
-          {analytics.revenueBySpecialty.length > 0 ? <RevenueBySpecialty items={analytics.revenueBySpecialty} /> : <DashboardEmpty />}
+          <AnalyticsFilter
+            from={formFilters.from}
+            to={formFilters.to}
+            error={validationError}
+            onFromChange={(from) => setFormFilters((current) => ({ ...current, from }))}
+            onToChange={(to) => setFormFilters((current) => ({ ...current, to }))}
+            onApply={handleApplyFilters}
+            onReset={handleResetFilters}
+          />
+
+          {loading && <DashboardLoading />}
+          {!loading && error && <DashboardError message={error} onRetry={refetch} />}
+          {!loading && !error && analytics && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatsCard label="Phí khám mô phỏng" value={`${analytics.summary.paidRevenue.toLocaleString('vi-VN')} đ`} helper={`Từ ${analytics.filters.from} đến ${analytics.filters.to}`} icon={DollarSign} tone="emerald" />
+                <StatsCard label="Ca khám hoàn tất" value={`${analytics.summary.completedAppointments} ca`} helper="Lịch khám có trạng thái hoàn tất" icon={CalendarCheck} tone="primary" />
+                <StatsCard label="Bệnh nhân đã đăng ký" value={`${analytics.summary.patientCount} người`} helper={`${analytics.usersByRole.patient} tài khoản patient`} icon={Users} tone="sky" />
+                <StatsCard label="Bác sĩ & Dược sĩ" value={`${analytics.summary.staffCount} nhân sự`} helper={`RBAC: ${analytics.usersByRole.admin} admin`} icon={Shield} tone="purple" />
+              </div>
+              {analytics.revenueBySpecialty.length > 0 ? <RevenueBySpecialty items={analytics.revenueBySpecialty} /> : <DashboardEmpty />}
+            </>
+          )}
         </>
+      ) : (
+        <UserManagementTab onDataChanged={refetch} />
       )}
     </div>
   );
