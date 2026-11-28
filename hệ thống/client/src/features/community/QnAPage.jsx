@@ -143,12 +143,12 @@ const QnAPage = () => {
   }, []);
 
   // 3. Tải lịch sử ca khám của tôi từ MongoDB
-  const fetchMyAppointments = useCallback(async () => {
+  const fetchMyAppointments = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setAppointments([]);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await axiosClient.get('/discussions/my-appointments');
@@ -156,9 +156,11 @@ const QnAPage = () => {
         setAppointments(res.appointments || []);
       }
     } catch (err) {
-      setError(err.message || 'Không thể tải danh sách ca khám của bạn.');
+      if (!silent) {
+        setError(err.message || 'Không thể tải danh sách ca khám của bạn.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [isAuthenticated]);
 
@@ -212,8 +214,13 @@ const QnAPage = () => {
 
   // ==================== CÁC HÀNH ĐỘNG TƯƠNG TÁC (MUTATIONS) ====================
 
-  // Mở modal đánh giá tự chọn bác sĩ
-  const handleOpenGenericReview = () => {
+  // Mở modal đánh giá từ nút header (kiểm tra đăng nhập & tải danh sách ca khám đủ điều kiện)
+  const handleOpenGenericReview = async () => {
+    if (!isAuthenticated) {
+      alert('Vui lòng đăng nhập tài khoản Bệnh nhân để đánh giá bác sĩ sau ca khám!');
+      return;
+    }
+    await fetchMyAppointments(true);
     setSelectedDoctorForReview(null);
     setSelectedAppointmentId(null);
     setIsReviewModalOpen(true);
@@ -377,6 +384,18 @@ const QnAPage = () => {
       throw new Error(err.message || 'Gửi đánh giá thất bại.');
     }
   };
+
+  // Danh sách ca khám đủ điều kiện đánh giá (đã hoàn thành, có bệnh án, chưa đánh giá)
+  const reviewableAppointments = useMemo(
+    () =>
+      appointments.filter((app) => {
+        const isCompleted = app.status === 'completed';
+        const isReviewed = Boolean(app.isReviewed);
+        const hasMedicalRecord = Boolean(app.hasMedicalRecord);
+        return app.canReview ?? (isCompleted && hasMedicalRecord && !isReviewed);
+      }),
+    [appointments]
+  );
 
   // Lọc câu hỏi ở client theo chế độ có BS trả lời
   const filteredQuestions = useMemo(() => {
@@ -739,6 +758,11 @@ const QnAPage = () => {
         onSubmitReview={handleSubmitReview}
         doctor={selectedDoctorForReview}
         appointmentId={selectedAppointmentId}
+        reviewableAppointments={reviewableAppointments}
+        onGoToHistory={() => {
+          setIsReviewModalOpen(false);
+          setActiveTab('history');
+        }}
       />
 
       {/* Modal Chi Tiết Thảo Luận & Bình Luận */}

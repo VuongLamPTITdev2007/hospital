@@ -1,34 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShieldCheck, AlertCircle, Stethoscope, ChevronDown } from 'lucide-react';
+import { Star, ShieldCheck, AlertCircle, CalendarCheck2, ChevronDown } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import StarRating from './StarRating';
 
-// Danh sách bác sĩ thực tế từ cơ sở dữ liệu MongoDB Atlas
-const SAMPLE_DOCTORS = [
-  { id: '6b03494fe51ed7615dd8a24a', name: 'PGS.TS.BS. Nguyễn Văn Liệu', specialty: 'Thần kinh' },
-  { id: '6b03494ee51ed7615dd8a229', name: 'PGS.TS.BS. Nguyễn Lân Hiếu', specialty: 'Tim mạch' },
-  { id: '6b03494ee51ed7615dd8a231', name: 'PGS.TS.BS. Nguyễn Tiến Dũng', specialty: 'Nhi khoa' },
-  { id: '6b03494fe51ed7615dd8a239', name: 'PGS.TS.BS. Nguyễn Vĩnh Ngọc', specialty: 'Cơ xương khớp' },
-  { id: '6b03494fe51ed7615dd8a242', name: 'GS.TS.BS. Đào Văn Long', specialty: 'Tiêu hóa - Gan mật' },
-  { id: '6b03494fe51ed7615dd8a253', name: 'PGS.TS.BS. Phạm Thị Lan', specialty: 'Da liễu' }
-];
+// Định dạng ngày khám hiển thị gọn trong dropdown
+const formatAppointmentDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString('vi-VN');
+};
 
 /**
  * Component: ReviewModal
  * Form đánh giá chất lượng ca khám 1-5 sao và nhận xét phản hồi bác sĩ
- * - Nếu nhận prop `doctor`: Hiển thị cố định thông tin bác sĩ đó (dành cho ca khám cụ thể).
- * - Nếu không có prop `doctor`: Hiển thị ô dropdown <select> để chọn bác sĩ trong hệ thống.
- * - Validation: Bắt buộc chọn bác sĩ, số sao từ 1-5, nhận xét tối thiểu 10 ký tự.
+ * - Nếu nhận prop `doctor`: Hiển thị cố định thông tin bác sĩ và mã ca khám đó.
+ * - Nếu không có prop `doctor`: Hiển thị dropdown chọn từ danh sách ca khám thực tế đủ điều kiện (`reviewableAppointments`).
+ * - Validation: Bắt buộc có ca khám hợp lệ, số sao từ 1-5, nhận xét tối thiểu 10 ký tự.
  */
 const ReviewModal = ({
   isOpen,
   onClose,
   onSubmitReview,
   doctor = null,
-  appointmentId = null
+  appointmentId = null,
+  reviewableAppointments = [],
+  onGoToHistory
 }) => {
-  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [selectedAppointmentOptionId, setSelectedAppointmentOptionId] = useState('');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
@@ -44,22 +44,26 @@ const ReviewModal = ({
   useEffect(() => {
     if (isOpen) {
       if (isFixedDoctor) {
-        setSelectedDoctorId(doctor.id || doctor._id || 'fixed_doc');
+        setSelectedAppointmentOptionId(String(appointmentId || doctor?.appointmentId || ''));
+      } else if (reviewableAppointments.length === 1) {
+        setSelectedAppointmentOptionId(String(reviewableAppointments[0].id));
       } else {
-        setSelectedDoctorId('');
+        setSelectedAppointmentOptionId('');
       }
       setComment('');
       setRating(5);
       setError('');
       setIsSuccess(false);
     }
-  }, [isOpen, doctor, isFixedDoctor]);
+  }, [isOpen, doctor, isFixedDoctor, appointmentId, reviewableAppointments]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Kiểm tra hợp lệ bác sĩ
+    // 1. Kiểm tra hợp lệ ca khám & bác sĩ
+    let targetAppointmentId = appointmentId || doctor?.appointmentId;
     let activeDoctor = null;
+
     if (isFixedDoctor) {
       activeDoctor = {
         id: doctor.id || doctor._id || 'fixed_doc',
@@ -67,15 +71,28 @@ const ReviewModal = ({
         specialty: fixedDoctorSpecialty
       };
     } else {
-      if (!selectedDoctorId) {
-        setError('Vui lòng chọn bác sĩ bạn muốn đánh giá từ danh sách.');
+      if (!selectedAppointmentOptionId) {
+        setError('Vui lòng chọn ca khám bạn muốn đánh giá từ danh sách.');
         return;
       }
-      activeDoctor = SAMPLE_DOCTORS.find((d) => d.id === selectedDoctorId);
-      if (!activeDoctor) {
-        setError('Bác sĩ đã chọn không hợp lệ, vui lòng chọn lại.');
+      const matchedApp = reviewableAppointments.find(
+        (app) => String(app.id) === String(selectedAppointmentOptionId)
+      );
+      if (!matchedApp) {
+        setError('Ca khám đã chọn không hợp lệ, vui lòng chọn lại.');
         return;
       }
+      targetAppointmentId = matchedApp.id;
+      activeDoctor = {
+        id: matchedApp.doctorId,
+        name: matchedApp.doctorName,
+        specialty: matchedApp.specialty || 'Đa khoa'
+      };
+    }
+
+    if (!targetAppointmentId) {
+      setError('Không tìm thấy mã ca khám hợp lệ để gửi đánh giá.');
+      return;
     }
 
     // 2. Kiểm tra hợp lệ số sao
@@ -101,7 +118,7 @@ const ReviewModal = ({
 
     try {
       const reviewPayload = {
-        appointmentId: appointmentId || doctor?.appointmentId,
+        appointmentId: targetAppointmentId,
         doctorId: activeDoctor.id,
         doctorName: activeDoctor.name,
         specialty: activeDoctor.specialty,
@@ -116,7 +133,7 @@ const ReviewModal = ({
         setIsSuccess(false);
         setComment('');
         setRating(5);
-        if (!isFixedDoctor) setSelectedDoctorId('');
+        if (!isFixedDoctor) setSelectedAppointmentOptionId('');
         onClose();
       }, 1500);
     } catch (err) {
@@ -145,9 +162,33 @@ const ReviewModal = ({
             Phản hồi của bạn đã được ghi nhận và cập nhật vào điểm số uy tín của Bác sĩ trên MongoDB.
           </p>
         </div>
+      ) : !isFixedDoctor && reviewableAppointments.length === 0 ? (
+        <div className="py-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+            <CalendarCheck2 className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              Bạn chưa có ca khám nào đủ điều kiện đánh giá
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Hệ thống chỉ cho phép đánh giá các ca khám đã hoàn tất, đã có hồ sơ bệnh án từ bác sĩ và chưa từng được đánh giá trước đó.
+            </p>
+          </div>
+          <div className="flex items-center justify-center space-x-2 pt-2">
+            <Button variant="outline" size="sm" type="button" onClick={onClose}>
+              Đóng
+            </Button>
+            {onGoToHistory && (
+              <Button variant="primary" size="sm" type="button" onClick={onGoToHistory}>
+                Xem lịch sử khám của tôi
+              </Button>
+            )}
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Thông tin bác sĩ: Cố định nếu có prop doctor, Dropdown nếu không có */}
+          {/* Thông tin bác sĩ: Cố định nếu có prop doctor, Dropdown ca khám thực tế nếu không có */}
           {isFixedDoctor ? (
             <div className="p-3.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div>
@@ -164,21 +205,22 @@ const ReviewModal = ({
           ) : (
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Chọn bác sĩ bạn muốn đánh giá <span className="text-red-500">*</span>
+                Chọn ca khám & bác sĩ bạn muốn đánh giá <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <select
-                  value={selectedDoctorId}
+                  value={selectedAppointmentOptionId}
                   onChange={(e) => {
-                    setSelectedDoctorId(e.target.value);
+                    setSelectedAppointmentOptionId(e.target.value);
                     if (error) setError('');
                   }}
                   className="w-full appearance-none px-3.5 py-2.5 pr-9 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors cursor-pointer"
                 >
-                  <option value="">-- Vui lòng chọn bác sĩ bạn đã khám --</option>
-                  {SAMPLE_DOCTORS.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.name} – Khoa {doc.specialty}
+                  <option value="">-- Vui lòng chọn ca khám đã hoàn thành --</option>
+                  {reviewableAppointments.map((app) => (
+                    <option key={app.id} value={app.id}>
+                      {app.doctorName} – Khoa {app.specialty} ({formatAppointmentDate(app.date)}
+                      {app.timeSlot ? ` • ${app.timeSlot}` : ''})
                     </option>
                   ))}
                 </select>
@@ -187,7 +229,7 @@ const ReviewModal = ({
                 </div>
               </div>
               <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                Chỉ đánh giá các bác sĩ bạn đã từng hoàn thành buổi khám tại phòng khám.
+                Chỉ hiển thị các ca khám đã hoàn tất và có hồ sơ bệnh án hợp lệ của bạn.
               </p>
             </div>
           )}
