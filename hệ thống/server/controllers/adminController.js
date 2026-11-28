@@ -4,6 +4,8 @@ const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
 const Specialty = require('../models/Specialty');
 const User = require('../models/User');
+const { vietnamDate } = require('../services/availabilityService');
+const { ACTIVE_STATUSES, normalizeSlot, validSlot } = require('../services/slotPolicy');
 
 const ROLE_KEYS = ['patient', 'doctor', 'pharmacist', 'admin'];
 const STAFF_ROLES = ['doctor', 'pharmacist', 'admin'];
@@ -109,6 +111,44 @@ const getAnalytics = async (req, res, next) => {
   }
 };
 
+const buildWeeklySchedule = (workingHours = []) => {
+  const safeHours = Array.isArray(workingHours) ? workingHours : [];
+  return [1, 2, 3, 4, 5, 6, 7].map((dayOfWeek) => {
+    const rawSlots = safeHours
+      .filter((entry) => entry?.dayOfWeek === dayOfWeek && Array.isArray(entry.slots))
+      .flatMap((entry) => entry.slots);
+    const slots = [...new Set(rawSlots.map(normalizeSlot).filter(validSlot))].sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return {
+      dayOfWeek,
+      isWorking: slots.length > 0,
+      slots
+    };
+  });
+};
+
+const buildScheduleSummary = (user, profile = null) => {
+  if (user.role === 'doctor') {
+    const weekly = buildWeeklySchedule(profile?.workingHours);
+    const workingDays = weekly.filter((day) => day.isWorking).map((day) => day.dayOfWeek);
+    const totalWeeklySlots = weekly.reduce((sum, day) => sum + day.slots.length, 0);
+    return {
+      type: 'doctor',
+      workingDays,
+      totalWeeklySlots
+    };
+  }
+  if (user.role === 'pharmacist' || user.role === 'admin') {
+    return {
+      type: 'office',
+      workingDays: [1, 2, 3, 4, 5, 6],
+      label: 'T2–T7 · Giờ hành chính'
+    };
+  }
+  return null;
+};
+
 const serializeUser = (user, profile = null) => ({
   _id: user._id,
   fullName: user.fullName,
@@ -119,6 +159,7 @@ const serializeUser = (user, profile = null) => ({
   isActive: user.isActive !== false,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  scheduleSummary: buildScheduleSummary(user, profile),
   doctorProfile: profile
     ? {
         _id: profile._id,
@@ -564,10 +605,171 @@ const updateUserStatus = async (req, res, next) => {
   }
 };
 
+const getUserSchedule = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã tài khoản không hợp lệ.'
+      });
+    }
+
+    const date = req.query.date ? String(req.query.date).trim() : vietnamDate(new Date());
+    if (!isValidDate(date)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ngày xem lịch không hợp lệ. Hãy dùng định dạng YYYY-MM-DD.'
+      });
+    }
+
+    const user = await User.findById(id).lean();
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy tài khoản nhân sự yêu cầu.'
+      });
+    }
+
+    if (user.role === 'patient') {
+      return res.status(400).json({
+        success: false,
+        message: 'Tài khoản bệnh nhân không có lịch làm việc nhân sự.'
+      });
+    }
+
+    const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+
+    if (user.role !== 'doctor') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            isActive: user.isActive !== false
+          },
+          scheduleType: 'office',
+          date,
+          dayOfWeek,
+          officeHours: {
+            days: [1, 2, 3, 4, 5, 6],
+            shifts: [
+              { label: 'Ca sáng', time: '08:00 - 12:00' },
+              { label: 'Ca chiều', time: '13:30 - 17:30' }
+            ],
+            note: 'Lịch trực hành chính mặc định cho khối Dược sĩ & Quản trị (Chủ Nhật nghỉ).'
+          },
+          weeklySchedule: [1, 2, 3, 4, 5, 6, 7].map((d) => ({
+            dayOfWeek: d,
+            isWorking: d <= 6,
+            slots: d <= 6 ? ['08:00-12:00', '13:30-17:30'] : []
+          })),
+          daily: null
+        }
+      });
+    }
+
+    const profile = await DoctorProfile.findOne({ userId: user._id })
+      .populate('specialtyId', 'name')
+      .lean();
+    const weeklySchedule = buildWeeklySchedule(profile?.workingHours);
+
+    const now = new Date();
+    const appointments = await Appointment.find({
+      doctorId: user._id,
+      date,
+      status: { $in: ACTIVE_STATUSES }
+    })
+      .select('timeSlot status holdingExpiresAt patientName patientPhone symptomsNote paymentStatus fee')
+      .lean();
+
+    const appointmentBySlot = new Map();
+    for (const appt of appointments) {
+      if (appt.status === 'holding' && new Date(appt.holdingExpiresAt) <= now) {
+        continue;
+      }
+      const normalized = normalizeSlot(appt.timeSlot);
+      if (normalized && !appointmentBySlot.has(normalized)) {
+        appointmentBySlot.set(normalized, appt);
+      }
+    }
+
+    const configuredSlots = weeklySchedule.find((day) => day.dayOfWeek === dayOfWeek)?.slots || [];
+    const configuredSet = new Set(configuredSlots);
+    const mergedSlots = [...new Set([...configuredSlots, ...appointmentBySlot.keys()])].sort((a, b) =>
+      a.localeCompare(b)
+    );
+
+    const dailySlots = mergedSlots.map((timeSlot) => {
+      const appt = appointmentBySlot.get(timeSlot);
+      return {
+        timeSlot,
+        status: appt ? appt.status : 'available',
+        isOffSchedule: !configuredSet.has(timeSlot),
+        appointment: appt
+          ? {
+              _id: appt._id,
+              patientName: appt.patientName,
+              patientPhone: appt.patientPhone,
+              symptomsNote: appt.symptomsNote || '',
+              paymentStatus: appt.paymentStatus,
+              holdingExpiresAt: appt.holdingExpiresAt
+            }
+          : null
+      };
+    });
+
+    const totalSlots = dailySlots.length;
+    const bookedCount = dailySlots.filter((slot) => slot.status !== 'available').length;
+    const availableCount = totalSlots - bookedCount;
+    const completedCount = dailySlots.filter((slot) => slot.status === 'completed').length;
+    const holdingCount = dailySlots.filter((slot) => slot.status === 'holding').length;
+    const occupancyRate = totalSlots > 0 ? Math.round((bookedCount / totalSlots) * 100) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          _id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive !== false,
+          specialtyName: profile?.specialtyId?.name || 'Chưa phân khoa',
+          consultationFee: profile?.consultationFee ?? 0,
+          hospital: profile?.hospital || 'Phòng khám Đa khoa MedCare'
+        },
+        scheduleType: 'doctor',
+        date,
+        dayOfWeek,
+        weeklySchedule,
+        daily: {
+          isWorkingDay: configuredSlots.length > 0,
+          slots: dailySlots,
+          stats: {
+            totalSlots,
+            bookedCount,
+            availableCount,
+            completedCount,
+            holdingCount,
+            occupancyRate
+          }
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAnalytics,
   getUsers,
   createUser,
   updateUser,
-  updateUserStatus
+  updateUserStatus,
+  getUserSchedule
 };

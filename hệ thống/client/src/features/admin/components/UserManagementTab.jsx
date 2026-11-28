@@ -25,6 +25,7 @@ import {
 } from '../adminApi';
 import AccountTable from './AccountTable';
 import ConfirmStatusModal from './ConfirmStatusModal';
+import StaffScheduleModal from './StaffScheduleModal';
 import StatsCard from './StatsCard';
 import UserFormModal from './UserFormModal';
 
@@ -58,6 +59,8 @@ const UserManagementTab = ({ onDataChanged }) => {
   const [statusModal, setStatusModal] = useState({ open: false, user: null });
   const [statusSubmitting, setStatusSubmitting] = useState(false);
   const [statusError, setStatusError] = useState('');
+
+  const [scheduleModal, setScheduleModal] = useState({ open: false, user: null });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -357,6 +360,7 @@ const UserManagementTab = ({ onDataChanged }) => {
             currentUserId={currentUserId}
             onEdit={openEditModal}
             onToggleStatus={openStatusModal}
+            onViewSchedule={(targetUser) => setScheduleModal({ open: true, user: targetUser })}
           />
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm">
@@ -409,6 +413,12 @@ const UserManagementTab = ({ onDataChanged }) => {
         serverError={statusError}
         onClose={() => setStatusModal({ open: false, user: null })}
         onConfirm={handleConfirmStatus}
+      />
+
+      <StaffScheduleModal
+        isOpen={scheduleModal.open}
+        user={scheduleModal.user}
+        onClose={() => setScheduleModal({ open: false, user: null })}
       />
     </div>
   );

@@ -1,6 +1,16 @@
 import React from 'react';
-import { Lock, Pencil, Unlock } from 'lucide-react';
+import { CalendarDays, Lock, Pencil, Unlock } from 'lucide-react';
 import Button from '../../../components/common/Button';
+
+const DAY_LABELS = {
+  1: 'T2',
+  2: 'T3',
+  3: 'T4',
+  4: 'T5',
+  5: 'T6',
+  6: 'T7',
+  7: 'CN'
+};
 
 const ROLE_META = {
   doctor: {
@@ -27,24 +37,48 @@ const formatDateVi = (value) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('vi-VN');
 };
 
+const formatWorkingDays = (days = []) =>
+  days.map((day) => DAY_LABELS[day] || `T${day + 1}`).join(', ');
+
 const renderWorkInfo = (item) => {
   if (item.role === 'doctor') {
     const specialtyName = item.doctorProfile?.specialtyName || 'Chưa gán chuyên khoa';
     const fee = Number(item.doctorProfile?.consultationFee ?? 0).toLocaleString('vi-VN');
+    const days = item.scheduleSummary?.workingDays || [];
+    const totalSlots = item.scheduleSummary?.totalWeeklySlots || 0;
+    const scheduleText = days.length > 0
+      ? `Lịch: ${formatWorkingDays(days)} · ${totalSlots} ca/tuần`
+      : 'Chưa cấu hình lịch trực';
+
     return (
-      <div>
+      <div className="space-y-0.5">
         <p className="font-medium text-slate-700 dark:text-slate-200">{specialtyName}</p>
         <p className="text-xs text-slate-500 dark:text-slate-400">Giá khám: {fee} đ</p>
+        <p className="text-[11px] font-medium text-primary-600 dark:text-primary-400">{scheduleText}</p>
       </div>
     );
   }
   if (item.role === 'pharmacist') {
-    return <span className="text-slate-600 dark:text-slate-300">Kho Dược &amp; Cấp phát</span>;
+    return (
+      <div className="space-y-0.5">
+        <span className="text-slate-600 dark:text-slate-300 block">Kho Dược &amp; Cấp phát</span>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+          {item.scheduleSummary?.label || 'T2–T7 · Giờ hành chính'}
+        </span>
+      </div>
+    );
   }
-  return <span className="text-slate-600 dark:text-slate-300">Quản trị hệ thống</span>;
+  return (
+    <div className="space-y-0.5">
+      <span className="text-slate-600 dark:text-slate-300 block">Quản trị hệ thống</span>
+      <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+        {item.scheduleSummary?.label || 'T2–T7 · Giờ hành chính'}
+      </span>
+    </div>
+  );
 };
 
-const AccountTable = ({ users, scope, currentUserId, onEdit, onToggleStatus }) => (
+const AccountTable = ({ users, scope, currentUserId, onEdit, onToggleStatus, onViewSchedule }) => (
   <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
@@ -124,6 +158,16 @@ const AccountTable = ({ users, scope, currentUserId, onEdit, onToggleStatus }) =
                 </td>
                 <td className="py-3.5 px-4 whitespace-nowrap text-right">
                   <div className="inline-flex items-center gap-2">
+                    {scope === 'staff' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onViewSchedule(item)}
+                        className="gap-1.5"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" /> Lịch
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
